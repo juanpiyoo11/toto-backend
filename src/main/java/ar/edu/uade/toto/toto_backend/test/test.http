@@ -1,0 +1,16 @@
+### Pregunta simple a /api/ask
+POST http://localhost:8080/api/ask
+Content-Type: application/json
+
+{
+  "prompt": "Decile hola a mi prometido, se llama lucas"
+}
+
+### Streaming con SSE
+POST http://localhost:8080/api/ask/stream
+Accept: text/event-stream
+Content-Type: application/json
+
+{
+  "prompt": "Dame 3 consejos breves para adultos mayores"
+}
