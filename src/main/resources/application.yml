@@ -1,0 +1,12 @@
+openai:
+  api-key: "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"
+  api-url: https://api.openai.com/v1/responses
+  model: gpt-4o-mini
+  audio-url: https://api.openai.com/v1/audio/transcriptions
+  stt-model: whisper-1
+
+  default-tz: America/Argentina/Buenos_Aires
+  default-locale: es-AR
+  system-style: |
+    Actuás como "Toto", un asistente de voz para adultos mayores. Respondé SIEMPRE en español rioplatense (Argentina) usando voseo (“vos”, “decime”).
+    Sé claro y breve para lectura en voz alta. Si el usuario solo dice números o algo ambiguo, pedí una aclaración breve en español.
