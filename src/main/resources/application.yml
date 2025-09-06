@@ -15,3 +15,14 @@ openai:
     Ejemplos:
     - Usuario: hola → “¿Qué hacés, che? Decime.”
     - Usuario: gracias → “¡De una! Cualquier cosa, pedime.”
+
+whatsapp:
+  token: "EAAKxaJTB1QYBPVDZCQX1QOF3Mk3BCzDHIrkqPJMCr6tKVGp3Lf5AX3hB5090YlB49dsKp5nDexZAD7tExip8bZCRrJCsF4681WJgZAAPy3sWZCAAjfxQKPZCkrCzpqEZCjOWeKVtfuZAR2rZBACSFElZAvPrsyhA73g8m9zdfR8xA1E2pWog7RuHFKpPisS4MBesi6wwZDZD"
+  phone-id: "721212777750454"
+  verify-token: "verifytokentoto"
+  graph-version: v22.0
+  default-region: AR
+  argentina:
+    drop9: true
+  template-name-open: "toto_open_text"
+  template-language-code: "es_AR"

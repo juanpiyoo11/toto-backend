@@ -25,6 +25,7 @@ repositories {
 }
 
 dependencies {
+	implementation 'com.googlecode.libphonenumber:libphonenumber:8.13.47'
 	implementation 'org.springframework.boot:spring-boot-starter-data-rest'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'com.openai:openai-java:latest.release'
