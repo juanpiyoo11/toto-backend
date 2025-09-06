@@ -4,18 +4,17 @@ import ar.edu.uade.toto.toto_backend.dto.NluRouteRequest;
 import ar.edu.uade.toto.toto_backend.dto.NluRouteResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import okhttp3.*;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.text.Normalizer;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
@@ -72,11 +71,14 @@ public class NluService {
                             "- Órdenes imperativas o en infinitivo (\"llamá\", \"llamar\", \"llamame\", \"quiero que llames …\") → CALL.\n" +
                             "- Pedidos interrogativos de capacidad/permiso (\"¿me podés/podrías/puedes llamar a …?\") → CALL si se menciona contacto explícito.\n" +
                             "- Enunciados descriptivos en 2da persona (\"llamás/llamas a …\") → CALL.\n" +
+                            "Reglas de mensaje:\n" +
+                            "- \"mandale/escribile/decile/avisale\" + \"a <persona>\" + (\"que\" | \":\") + <texto> → SEND_MESSAGE con contact_query y message_text.\n" +
+                            "- Si falta destinatario o texto, needs_confirmation=true y clarifying_question adecuada.\n" +
                             "Regla: si el usuario pide hora o día/fecha actuales, devolvé QUERY_TIME o QUERY_DATE (no ANSWER/UNKNOWN).\n" +
                             "Locale: " + locale + " | TZ: " + tz + " | now_epoch_ms: " + nowMs + "\n" +
                             "Para QUERY_TIME/QUERY_DATE NO generes ack_tts (el cliente habla la respuesta).";
 
-            // Few-shots HORA/FECHA
+            // ===== Few-shots =====
             ObjectNode ex1U = objectMsg("user", "¿Qué hora es?");
             ObjectNode ex1A = objectMsg("assistant", """
 {"intent":"QUERY_TIME","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
@@ -90,7 +92,6 @@ public class NluService {
             ObjectNode ex4A = objectMsg("assistant", """
 {"intent":"QUERY_DATE","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
 
-            // Few-shots CALL / SET_ALARM
             ObjectNode ex5U = objectMsg("user", "Llamá a Kevin");
             ObjectNode ex5A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
@@ -98,7 +99,6 @@ public class NluService {
             ObjectNode ex6A = objectMsg("assistant", """
 {"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":5,"minute":0},"ack_tts":"Listo, programo la alarma.","clarifying_question":null,"safety_notes":null}""");
 
-            // CALL variantes (con/sin acento, pronombres, forma “se llama a …” y portuñol / STT)
             ObjectNode exCall1U = objectMsg("user", "Llama a Kevin");
             ObjectNode exCall1A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
@@ -108,7 +108,6 @@ public class NluService {
             ObjectNode exCall3U = objectMsg("user", "Se llama a Kevin.");
             ObjectNode exCall3A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.97,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            // nuevas variantes (sin "liga")
             ObjectNode exCall4U = objectMsg("user", "Chama a Kevin");
             ObjectNode exCall4A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.97,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
@@ -118,8 +117,6 @@ public class NluService {
             ObjectNode exCall6U = objectMsg("user", "Shama a Kevin");
             ObjectNode exCall6A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.96,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-
-            // Infinitivo e interrogativas de capacidad/permiso → CALL
             ObjectNode exCall7U = objectMsg("user", "Llamar a Kevin");
             ObjectNode exCall7A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
@@ -129,13 +126,10 @@ public class NluService {
             ObjectNode exCallQ2U = objectMsg("user", "¿Podrías llamar a Kevin?");
             ObjectNode exCallQ2A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.96,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
-
-            // Enunciado descriptivo en 2da persona → **CALL** (ajuste pedido)
             ObjectNode exCallStmtU = objectMsg("user", "Llamás a Kevin");
             ObjectNode exCallStmtA = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.95,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
 
-            // SET_ALARM con “me despertás…”
             ObjectNode exWake1U = objectMsg("user", "¿Me despertás a la una de la tarde?");
             ObjectNode exWake1A = objectMsg("assistant", """
 {"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":13,"minute":0},"ack_tts":"Listo, te despierto a la una.","clarifying_question":null,"safety_notes":null}""");
@@ -143,7 +137,39 @@ public class NluService {
             ObjectNode exWake2A = objectMsg("assistant", """
 {"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":7,"minute":30},"ack_tts":"Perfecto, alarma a las siete y media.","clarifying_question":null,"safety_notes":null}""");
 
-            // Usuario real
+            ObjectNode exMsg1U = objectMsg("user", "Mandale a Kevin que llego en 10");
+            ObjectNode exMsg1A = objectMsg("assistant", """
+{"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
+ "slots":{"contact_query":"kevin","message_text":"llego en 10"},
+ "ack_tts":"Listo, se lo mando a Kevin.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode exMsg2U = objectMsg("user", "Escribile a mamá: estoy saliendo");
+            ObjectNode exMsg2A = objectMsg("assistant", """
+{"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
+ "slots":{"contact_query":"mama","message_text":"estoy saliendo"},
+ "ack_tts":"Ok, le escribo a mamá.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode exMsg3U = objectMsg("user", "Avisale a Lucas que voy a llegar 20 tarde");
+            ObjectNode exMsg3A = objectMsg("assistant", """
+{"intent":"SEND_MESSAGE","confidence":0.97,"needs_confirmation":false,
+ "slots":{"contact_query":"lucas","message_text":"voy a llegar 20 tarde"},
+ "ack_tts":"Hecho, le aviso a Lucas.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode exMsg4U = objectMsg("user", "Mandale mensaje a Sofi");
+            ObjectNode exMsg4A = objectMsg("assistant", """
+{"intent":"SEND_MESSAGE","confidence":0.95,"needs_confirmation":true,
+ "slots":{"contact_query":"sofi","message_text":null},
+ "ack_tts":null,"clarifying_question":"¿Qué querés que le diga a Sofi?","safety_notes":null}""");
+
+            // ===== Few-shots negativos (evitar falsos positivos) =====
+            ObjectNode exNeg1U = objectMsg("user", "Como estas?");
+            ObjectNode exNeg1A = objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.80,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode exNeg2U = objectMsg("user", "No, no, nada. No te llamé recién.");
+            ObjectNode exNeg2A = objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.85,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+
+            // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
             userText.append("texto: ").append(safe(text)).append("\n");
             userText.append("texto_normalizado: ").append(norm).append("\n");
@@ -156,39 +182,78 @@ public class NluService {
                 userText.append("hints: ").append(mapSafe(req.hints)).append("\n");
             }
 
-            // Schema (SIN OPEN_APP ni app_name)
+            // ===== JSON Schema =====
             ObjectNode schema = mapper.createObjectNode();
             schema.put("$schema", "http://json-schema.org/draft-07/schema#");
             schema.put("type", "object");
+            schema.put("additionalProperties", false);
+
             ObjectNode props = schema.putObject("properties");
             props.putObject("intent").put("type","string").putArray("enum")
                     .add("CALL").add("SET_ALARM").add("QUERY_TIME").add("QUERY_DATE")
                     .add("SEND_MESSAGE").add("ANSWER").add("CANCEL").add("UNKNOWN");
             props.putObject("confidence").put("type","number").put("minimum",0.0).put("maximum",1.0);
             props.putObject("needs_confirmation").put("type","boolean");
-            ObjectNode slots = props.putObject("slots").put("type","object");
+
+            // slots
+            ObjectNode slots = props.putObject("slots");
+            slots.put("type","object");
+            slots.put("additionalProperties", false);
             ObjectNode slotsProps = slots.putObject("properties");
-            slotsProps.putObject("contact_query").put("type","string");
-            slotsProps.putObject("hour").put("type","integer").put("minimum",0).put("maximum",23);
-            slotsProps.putObject("minute").put("type","integer").put("type","integer").put("minimum",0).put("maximum",59);
-            slotsProps.putObject("datetime_iso").put("type","string");
-            slotsProps.putObject("message_text").put("type","string");
-            slots.putArray("required");
-            props.putObject("clarifying_question").put("type","string");
-            props.putObject("ack_tts").put("type","string");
-            props.putObject("safety_notes").put("type","string");
-            schema.putArray("required").add("intent").add("confidence").add("needs_confirmation").add("slots");
 
-            ObjectNode jsonSchema = mapper.createObjectNode();
-            jsonSchema.put("name", "nlu_route");
-            jsonSchema.put("strict", true);
-            jsonSchema.set("schema", schema);
+            // tipos unión para permitir null
+            ArrayNode tContact = slotsProps.putObject("contact_query").putArray("type");
+            tContact.add("string").add("null");
 
-            // Payload
+            ObjectNode hourNode = slotsProps.putObject("hour");
+            ArrayNode tHour = hourNode.putArray("type"); tHour.add("integer").add("null");
+            hourNode.put("minimum", 0).put("maximum", 23);
+
+            ObjectNode minuteNode = slotsProps.putObject("minute");
+            ArrayNode tMinute = minuteNode.putArray("type"); tMinute.add("integer").add("null");
+            minuteNode.put("minimum", 0).put("maximum", 59);
+
+            ArrayNode tDt = slotsProps.putObject("datetime_iso").putArray("type");
+            tDt.add("string").add("null");
+
+            ArrayNode tMsg = slotsProps.putObject("message_text").putArray("type");
+            tMsg.add("string").add("null");
+
+            // required de slots = TODAS sus keys
+            ArrayNode slotsReq = slots.putArray("required");
+            slotsReq.add("contact_query");
+            slotsReq.add("hour");
+            slotsReq.add("minute");
+            slotsReq.add("datetime_iso");
+            slotsReq.add("message_text");
+
+            // opcionales raíz (también unión con null)
+            ArrayNode tClar = props.putObject("clarifying_question").putArray("type");
+            tClar.add("string").add("null");
+            ArrayNode tAck = props.putObject("ack_tts").putArray("type");
+            tAck.add("string").add("null");
+            ArrayNode tSafe = props.putObject("safety_notes").putArray("type");
+            tSafe.add("string").add("null");
+
+            // required raíz = TODAS las keys declaradas en properties
+            ArrayNode rootReq = schema.putArray("required");
+            rootReq.add("intent");
+            rootReq.add("confidence");
+            rootReq.add("needs_confirmation");
+            rootReq.add("slots");
+            rootReq.add("clarifying_question");
+            rootReq.add("ack_tts");
+            rootReq.add("safety_notes");
+
+            // ===== Payload Responses API =====
             ObjectNode root = mapper.createObjectNode();
             root.put("model", model);
-            var input = root.putArray("input");
+            root.put("temperature", 0.0);
+
+            ArrayNode input = root.putArray("input");
             input.add(objectMsg("system", systemPrompt));
+
+            // shots
             input.add(ex1U); input.add(ex1A);
             input.add(ex2U); input.add(ex2A);
             input.add(ex3U); input.add(ex3A);
@@ -207,13 +272,26 @@ public class NluService {
             input.add(exCallStmtU); input.add(exCallStmtA);
             input.add(exWake1U); input.add(exWake1A);
             input.add(exWake2U); input.add(exWake2A);
-            input.add(objectMsg("user", userText.toString()));
-            root.put("temperature", 0.0);
+            input.add(exMsg1U); input.add(exMsg1A);
+            input.add(exMsg2U); input.add(exMsg2A);
+            input.add(exMsg3U); input.add(exMsg3A);
+            input.add(exMsg4U); input.add(exMsg4A);
+            // negativos anti-falsos
+            input.add(exNeg1U); input.add(exNeg1A);
+            input.add(exNeg2U); input.add(exNeg2A);
 
-            ObjectNode responseFormat = mapper.createObjectNode();
-            responseFormat.put("type","json_schema");
-            responseFormat.set("json_schema", jsonSchema);
-            root.set("response_format", responseFormat);
+            // usuario real al final
+            input.add(objectMsg("user", userText.toString()));
+
+            // text.format json_schema
+            ObjectNode textObj = mapper.createObjectNode();
+            ObjectNode textFormat = mapper.createObjectNode();
+            textFormat.put("type", "json_schema");
+            textFormat.put("name", "nlu_route");
+            textFormat.put("strict", true);
+            textFormat.set("schema", schema);
+            textObj.set("format", textFormat);
+            root.set("text", textObj);
 
             Request reqHttp = new Request.Builder()
                     .url(apiUrl)
@@ -224,22 +302,23 @@ public class NluService {
 
             try (Response resp = http.newCall(reqHttp).execute()) {
                 String body = (resp.body() != null) ? resp.body().string() : "";
-                log.debug("OpenAI HTTP={} body(start)={}", resp.code(), truncate(body, 400));
-
-                // Si falla OpenAI → guardarraíl antes de fallback
                 if (!resp.isSuccessful()) {
+                    log.warn("NLU/route HTTP {}. errBody(start)={}", resp.code(), truncate(body, 400));
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
                     if (guard == null) guard = guardrailCall(norm);
+                    if (guard == null) guard = guardrailSendMessage(norm);
                     if (guard != null) return guard;
-                    log.warn("NLU/route HTTP {}. text='{}'", resp.code(), text);
                     return fallback("ANSWER", "No estoy seguro, ¿podés repetir?");
+                } else {
+                    log.debug("OpenAI HTTP={} body(start)={}", resp.code(), truncate(body, 400));
                 }
 
-                JsonNode r = mapper.readTree(body);
-                String json = extractOutputText(r);
+                // Parse: prioriza output_parsed
+                String json = extractOutputText(mapper.readTree(body));
                 if (json == null || json.isBlank()) {
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
                     if (guard == null) guard = guardrailCall(norm);
+                    if (guard == null) guard = guardrailSendMessage(norm);
                     if (guard != null) return guard;
                     log.warn("NLU/route sin output. text='{}'", text);
                     return fallback("ANSWER", "No te escuché bien. ¿Podés repetir?");
@@ -251,12 +330,65 @@ public class NluService {
                 if (out.intent == null) out.intent = "UNKNOWN";
                 if (out.slots == null) out.slots = new NluRouteResponse.Slots();
 
+                // ===== Post-model gate: SEND_MESSAGE =====
+                if ("SEND_MESSAGE".equalsIgnoreCase(out.intent)) {
+                    // Solo aceptamos si el texto realmente contiene patrón de mensaje
+                    MsgParts mp = extractMsgParts(norm);
+                    boolean looksMsg = containsAny(norm,
+                            " mandale ", " manda ", " mandar ",
+                            " escribile ", " escribe ", " escribir ",
+                            " decile ", " dile ",
+                            " avisale ", " avisa ", " avisar ",
+                            " mensaje a ", " msj a ", " mandale un mensaje a ", " mandale mensaje a ");
+
+                    // Completar slots con lo extraído localmente (si faltan)
+                    if (mp != null) {
+                        if ((out.slots.contact_query == null || out.slots.contact_query.isBlank()) && mp.who != null)
+                            out.slots.contact_query = mp.who;
+                        if ((out.slots.message_text == null || out.slots.message_text.isBlank()) && mp.text != null)
+                            out.slots.message_text = mp.text;
+                    }
+
+                    // Si no hay patrón claro o faltan partes importantes → pedir confirmación
+                    if (!looksMsg || mp == null || out.slots.contact_query == null || out.slots.contact_query.isBlank()
+                            || out.slots.message_text == null || out.slots.message_text.isBlank()) {
+                        out.needs_confirmation = true;
+                        out.clarifying_question = (out.slots.contact_query == null || out.slots.contact_query.isBlank())
+                                ? "¿A quién querés mandarle el mensaje?"
+                                : ("¿Qué querés que le diga a " + out.slots.contact_query + "?");
+                        out.ack_tts = null; // no anunciar envío
+                        // Reforzar confianza moderada
+                        if (out.confidence > 0.9) out.confidence = 0.9;
+                    }
+                }
+
                 // Guardarraíl si el modelo dijo ANSWER/UNKNOWN
                 String upper = out.intent.toUpperCase(Locale.ROOT);
                 if ("ANSWER".equals(upper) || "UNKNOWN".equals(upper)) {
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
                     if (guard == null) guard = guardrailCall(norm);
+                    if (guard == null) guard = guardrailSendMessage(norm);
                     if (guard != null) out = guard;
+                }
+
+                // === Corrección: si SEND_MESSAGE tiene contacto + texto, NO pedir confirmación ===
+                if ("SEND_MESSAGE".equalsIgnoreCase(out.intent)) {
+                    String cq = (out.slots != null && out.slots.contact_query != null)
+                            ? out.slots.contact_query.trim() : "";
+                    String mt = (out.slots != null && out.slots.message_text != null)
+                            ? out.slots.message_text.trim() : "";
+
+                    if (!cq.isEmpty() && !mt.isEmpty()) {
+                        out.needs_confirmation = false;
+                        out.clarifying_question = null;
+
+                        // Si el modelo no propuso ack, damos uno por defecto.
+                        if (out.ack_tts == null || out.ack_tts.isBlank()) {
+                            out.ack_tts = "Listo, le mando a " + cq + ": '" + mt + "'.";
+                        }
+                        // Subí un poco la confianza si vino baja de casualidad
+                        if (out.confidence < 0.95) out.confidence = 0.95;
+                    }
                 }
 
                 // Para hora/fecha, garantizamos que el cliente hable
@@ -270,7 +402,6 @@ public class NluService {
                 if (out.confidence < 0.0) out.confidence = 0.0;
                 if (out.confidence > 1.0) out.confidence = 1.0;
 
-                // Log útil (intención y slots)
                 String slotsLog = String.format(
                         "{contact='%s', hour=%s, minute=%s, dt='%s', msg='%s'}",
                         safe(out.slots.contact_query),
@@ -287,43 +418,31 @@ public class NluService {
             String norm = normalizeLite(req != null ? req.text : null);
             NluRouteResponse guard = guardrailTimeOrDate(norm);
             if (guard == null) guard = guardrailCall(norm);
+            if (guard == null) guard = guardrailSendMessage(norm);
             if (guard != null) return guard;
             return fallback("ANSWER","Perdón, tuve un problema procesando eso.");
         }
     }
 
-    // ===== Guardarraíles normalizados =====
+    // ===== Guardarraíles =====
     private static NluRouteResponse guardrailTimeOrDate(String norm) {
         if (norm == null || norm.isBlank()) return null;
-        // Hora
-        if (containsAny(norm,
-                "que hora es", "tenes la hora", "decime la hora", "me decis la hora",
-                "tenes hora", "hora es", "la hora es", "hora?","hora")) {
+        if (containsAny(norm, "que hora es","tenes la hora","decime la hora","me decis la hora","tenes hora","hora es","la hora es","hora?","hora"))
             return quick("QUERY_TIME");
-        }
-        // Día/Fecha
-        if (containsAny(norm,
-                "que dia es", "que dia es hoy", "que fecha es", "fecha de hoy",
-                "que dia estamos", "me decis la fecha", "decime la fecha")) {
+        if (containsAny(norm, "que dia es","que dia es hoy","que fecha es","fecha de hoy","que dia estamos","me decis la fecha","decime la fecha"))
             return quick("QUERY_DATE");
-        }
         return null;
     }
 
     private static NluRouteResponse guardrailCall(String norm) {
         if (norm == null || norm.isBlank()) return null;
-
-        // Disparadores de orden/capacidad/intención (incluye 2da persona)
         boolean looksCallish = containsAny(norm,
                 " llama ", " llamame ", " llamalo ", " llamar ", " llamar a ", " se llama ", " llamá ",
-                " yama ", " yamar ", " yamalo ",
-                " chama ", " chamar ", " chamalo ",
-                " shama ", " shamar ", " shamalo ",
-                " llamas ", " llamas a ",           // <- 2da persona (con/ sin acento normalizado)
+                " yama ", " yamar ", " yamalo ", " chama ", " chamar ", " chamalo ",
+                " shama ", " shamar ", " shamalo ", " llamas ", " llamas a ",
                 " quiero que llames ", " quiero llamar ",
                 " me podes llamar ", " me podrias llamar ", " me puedes llamar ",
                 " podes llamar ", " podrias llamar ", " puedes llamar ", " podria llamar ");
-
         if (looksCallish) {
             String cq = extractContactForCall(norm);
             NluRouteResponse r = new NluRouteResponse();
@@ -338,9 +457,87 @@ public class NluService {
         return null;
     }
 
-    // Extracción mínima de contacto desde texto normalizado (similar a InstructionRouter)
+    private NluRouteResponse guardrailSendMessage(String norm) {
+        if (norm == null || norm.isBlank()) return null;
+        boolean looksMsg = containsAny(norm,
+                " mandale ", " manda ", " mandar ",
+                " escribile ", " escribe ", " escribir ",
+                " decile ", " dile ",
+                " avisale ", " avisa ", " avisar ",
+                " mensaje a ", " msj a ", " mandale un mensaje a ", " mandale mensaje a ");
+        if (!looksMsg) return null;
+
+        MsgParts m = extractMsgParts(norm);
+
+        NluRouteResponse r = new NluRouteResponse();
+        r.intent = "SEND_MESSAGE";
+        r.slots  = new NluRouteResponse.Slots();
+        r.confidence = 0.96;
+        if (m != null && m.who != null && !m.who.isBlank()) r.slots.contact_query = m.who;
+        if (m != null && m.text != null && !m.text.isBlank()) r.slots.message_text = m.text;
+
+        if (r.slots.contact_query == null || r.slots.contact_query.isBlank()) {
+            r.needs_confirmation = true;
+            r.clarifying_question = "¿A quién querés mandarle el mensaje?";
+            r.ack_tts = null;
+        } else if (r.slots.message_text == null || r.slots.message_text.isBlank()) {
+            r.needs_confirmation = true;
+            r.clarifying_question = "¿Qué querés que le diga a " + r.slots.contact_query + "?";
+            r.ack_tts = null;
+        } else {
+            r.needs_confirmation = false;
+            r.ack_tts = "Listo, lo mando.";
+        }
+        return r;
+    }
+
+    private static final class MsgParts { final String who, text; MsgParts(String w, String t){who=w;text=t;} }
+
+    private MsgParts extractMsgParts(String norm) {
+        String[] pats = new String[] {
+                "\\b(?:mandale|manda|mandar|escribile|escribe|escribir|decile|dile|avisale|avisa|avisar)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|de que|:|–|-)?\\s*(.+)$",
+                "\\b(?:mensaje|msj)\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|:)?\\s*(.+)$"
+        };
+        for (String p : pats) {
+            java.util.regex.Matcher m = java.util.regex.Pattern.compile(p).matcher(norm);
+            if (m.find()) {
+                String who  = cleanPersonGuard(m.group(1));
+                String text = cleanMessageGuard(m.groupCount() >= 2 ? m.group(2) : "");
+                if (!who.isEmpty() && !text.isEmpty()) return new MsgParts(who, text);
+            }
+        }
+        java.util.regex.Matcher m2 = java.util.regex.Pattern
+                .compile("\\b(?:mandale|manda|escribile|escribe|decile|dile|avisale|avisa|avisar)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\b")
+                .matcher(norm);
+        if (m2.find()) {
+            String who = cleanPersonGuard(m2.group(1));
+            if (!who.isEmpty()) return new MsgParts(who, "");
+        }
+        return null;
+    }
+
+    private static String cleanPersonGuard(String s) {
+        if (s == null) return "";
+        s = s.replaceAll("(?:\\s+por\\s+favor.*$)|(?:\\s+gracias.*$)|(?:\\s+ahora.*$)|(?:\\s+urgente.*$)|(?:\\s+ya.*$)", " ");
+        s = s.replaceAll("[^a-z0-9\\s.-]", " ");
+        s = s.replaceAll("\\s+", " ").trim();
+        if (s.startsWith("a") && s.length() >= 2 && "bcdfghjklmnñpqrstvwxyz".indexOf(s.charAt(1)) >= 0) s = s.substring(1);
+        String[] tok = s.split("\\s+");
+        int limit = Math.min(tok.length, 4);
+        StringBuilder out = new StringBuilder();
+        for (int i = 0; i < limit; i++) { if (i>0) out.append(' '); out.append(tok[i]); }
+        return out.toString();
+    }
+
+    private static String cleanMessageGuard(String s) {
+        if (s == null) return "";
+        s = s.replaceAll("\\s+", " ").trim();
+        s = s.replaceAll("(\\s+por\\s+favor.*$)|(\\s+gracias.*$)", "").trim();
+        return s;
+    }
+
+    // ===== Helpers CALL =====
     private static String extractContactForCall(String norm) {
-        // patrones con preposición "a"
         String[] pats = new String[] {
                 "\\bllam\\w*\\s+a\\s+([a-z0-9\\s-]{1,40})\\b",
                 "\\bse\\s+llama(?:\\s+a)?\\s+([a-z0-9\\s-]{1,40})\\b",
@@ -355,12 +552,10 @@ public class NluService {
             java.util.regex.Matcher m = java.util.regex.Pattern.compile(p).matcher(norm);
             if (m.find()) {
                 String cand = cleanContactCandidateForGuard(m.group(1));
-                cand = stripLeadingAIfConsonantForGuard(cand); // "akevin" → "kevin"
+                cand = stripLeadingAIfConsonantForGuard(cand);
                 if (!cand.isEmpty()) return cand;
             }
         }
-
-        // sin preposición (ej. "llamalo kevin")
         java.util.regex.Matcher m2 = java.util.regex.Pattern
                 .compile("\\b(?:llam\\w*|yam\\w*|cham\\w*|sham\\w*)\\s+([a-z0-9][a-z0-9\\s-]{1,40})\\b")
                 .matcher(norm);
@@ -399,16 +594,14 @@ public class NluService {
     }
 
     private static boolean containsAny(String haystack, String... needles) {
-        for (String n : needles) {
-            if (haystack.contains(n)) return true;
-        }
+        for (String n : needles) if (haystack.contains(n)) return true;
         return false;
     }
 
     private static String normalizeLite(String s) {
         if (s == null) return "";
         String t = Normalizer.normalize(s, Normalizer.Form.NFD);
-        t = t.replaceAll("\\p{M}", "");           // quitar diacríticos
+        t = t.replaceAll("\\p{M}", "");
         t = t.toLowerCase(Locale.ROOT);
         t = t.replaceAll("[¿?¡!.,;:()\\[\\]\"']", " ");
         t = t.replaceAll("\\s+", " ").trim();
@@ -425,30 +618,23 @@ public class NluService {
         return r;
     }
 
-    // ===== Extractor robusto del Responses API =====
+    // ===== Extractor del Responses API =====
     private String extractOutputText(JsonNode root) {
-        // 1) Nuevo Responses API
+        // 1) cuando el server ya parseó/validó
+        JsonNode parsed = root.path("output_parsed");
+        if (!parsed.isMissingNode() && !parsed.isNull()) {
+            try { return mapper.writeValueAsString(parsed); } catch (Exception ignored) {}
+        }
+        // 2) respuesta en output[].content[].text
         JsonNode output = root.path("output");
         if (output.isArray() && output.size() > 0) {
-            List<String> parts = new ArrayList<>();
             JsonNode content = output.get(0).path("content");
-            if (content.isArray()) {
-                for (JsonNode c : content) {
-                    String txt = c.path("text").asText(null);
-                    if (txt != null && !txt.isBlank()) parts.add(txt);
-                    JsonNode j = c.path("json");
-                    if (!j.isMissingNode() && !j.isNull()) {
-                        try { parts.add(mapper.writeValueAsString(j)); } catch (Exception ignored) {}
-                    }
-                }
-                if (!parts.isEmpty()) return String.join("", parts).trim();
+            if (content.isArray() && content.size() > 0) {
+                String t = content.get(0).path("text").asText(null);
+                if (t != null && !t.isBlank()) return t;
             }
         }
-        // 2) output_text (atajo)
-        String ot = root.path("output_text").asText(null);
-        if (ot != null && !ot.isBlank()) return ot;
-
-        // 3) Compat Chat Completions
+        // 3) compat Chat Completions
         JsonNode choices = root.path("choices");
         if (choices.isArray() && choices.size() > 0) {
             String cc = choices.get(0).path("message").path("content").asText(null);
@@ -469,14 +655,11 @@ public class NluService {
         catch (Exception e) { return "{}"; }
     }
 
+    // Mensaje simple (como tu OpenAIPromptService)
     private ObjectNode objectMsg(String role, String text) {
         ObjectNode msg = mapper.createObjectNode();
         msg.put("role", role);
-        var content = msg.putArray("content");
-        ObjectNode item = mapper.createObjectNode();
-        item.put("type", "text");
-        item.put("text", text);
-        content.add(item);
+        msg.put("content", text);
         return msg;
     }
 
@@ -485,13 +668,11 @@ public class NluService {
         return s.length() <= max ? s : s.substring(0, max) + "…";
     }
 
-    @SuppressWarnings("unused")
     private ZoneId safeZone(String tz) {
         try { return ZoneId.of(Objects.requireNonNullElse(tz, defaultTz)); }
         catch (Exception e) { return ZoneId.of(defaultTz); }
     }
 
-    @SuppressWarnings("unused")
     private Locale toLocale(String s) {
         if (s == null || s.isBlank()) return new Locale("es","AR");
         String[] p = s.split("[-_]");
