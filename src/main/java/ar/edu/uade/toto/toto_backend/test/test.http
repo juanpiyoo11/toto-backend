@@ -14,3 +14,16 @@ Content-Type: application/json
 {
   "prompt": "Dame 3 consejos breves para adultos mayores"
 }
+
+###
+# 3) Envío directo de WhatsApp (usa el servicio /api/whatsapp/send)
+# Esperado: 200 con { "status":"ok", "messageId":"..." }
+POST http://localhost:8080/api/whatsapp/send
+Content-Type: application/json
+
+{
+  "to": "541158550932",
+  "text": "Hola, te escribe Toto 🤖",
+  "previewUrl": false
+}
+
