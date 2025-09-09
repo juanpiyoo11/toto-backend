@@ -1,5 +1,5 @@
 openai:
-  api-key: "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"
+  api-key: ${OPENAI_API_KEY}
   api-url: https://api.openai.com/v1/responses
   model: gpt-4o-mini
   audio-url: https://api.openai.com/v1/audio/transcriptions
@@ -17,12 +17,12 @@ openai:
     - Usuario: gracias → “¡De una! Cualquier cosa, pedime.”
 
 whatsapp:
-  token: "EAAKxaJTB1QYBPVDZCQX1QOF3Mk3BCzDHIrkqPJMCr6tKVGp3Lf5AX3hB5090YlB49dsKp5nDexZAD7tExip8bZCRrJCsF4681WJgZAAPy3sWZCAAjfxQKPZCkrCzpqEZCjOWeKVtfuZAR2rZBACSFElZAvPrsyhA73g8m9zdfR8xA1E2pWog7RuHFKpPisS4MBesi6wwZDZD"
-  phone-id: "721212777750454"
-  verify-token: "verifytokentoto"
+  token: ${WHATSAPP_TOKEN}
+  phone-id: ${WHATSAPP_PHONE_ID}
+  verify-token: ${WHATSAPP_VERIFY_TOKEN}
   graph-version: v22.0
   default-region: AR
   argentina:
     drop9: true
-  template-name-open: "toto_open_text"
-  template-language-code: "es_AR"
+  template-name-open: toto_open_text
+  template-language-code: es_AR
