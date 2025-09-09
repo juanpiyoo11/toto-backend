@@ -26,3 +26,6 @@ whatsapp:
     drop9: true
   template-name-open: toto_open_text
   template-language-code: es_AR
+
+server:
+  port: ${PORT:8080}

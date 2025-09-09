@@ -6,5 +6,3 @@ cmds = ["chmod +x ./gradlew", "./gradlew clean bootJar -x test"]
 
 [start]
 cmd = "java -jar build/libs/*.jar"
-
-dir = "toto-backend"
