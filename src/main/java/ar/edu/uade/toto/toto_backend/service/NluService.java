@@ -23,6 +23,12 @@ public class NluService {
 
     private static final Logger log = LoggerFactory.getLogger(NluService.class);
 
+    // --- Flags de estrategia ---
+    // El modelo manda: NO aplicar guardrails post-modelo
+    private static final boolean USE_GUARDRAILS_AFTER_MODEL = false;
+    // Usar guardrails SOLO como fallback si la API falla o viene sin output
+    private static final boolean USE_GUARDRAILS_ON_FAILURE = true;
+
     private final OkHttpClient http = new OkHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
 
@@ -67,14 +73,20 @@ public class NluService {
                     "Sos el router NLU de \"Toto\". Devolvés SOLO JSON válido según el schema (sin texto extra).\n" +
                             "Evitá falsos positivos. Si hay duda real: needs_confirmation=true y clarifying_question breve.\n" +
                             "Elegí exactamente una intención: CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, ANSWER, CANCEL, UNKNOWN.\n" +
+                            "\n" +
                             "Reglas de llamada:\n" +
                             "- Órdenes imperativas o en infinitivo (\"llamá\", \"llamar\", \"llamame\", \"quiero que llames …\") → CALL.\n" +
-                            "- Pedidos interrogativos de capacidad/permiso (\"¿me podés/podrías/puedes llamar a …?\") → CALL si se menciona contacto explícito.\n" +
+                            "- Preguntas de capacidad/permiso (\"¿me podés/podrías/puedes llamar a …?\") → CALL si hay contacto explícito.\n" +
                             "- Enunciados descriptivos en 2da persona (\"llamás/llamas a …\") → CALL.\n" +
+                            "\n" +
                             "Reglas de mensaje:\n" +
                             "- \"mandale/escribile/decile/avisale\" + \"a <persona>\" + (\"que\" | \":\") + <texto> → SEND_MESSAGE con contact_query y message_text.\n" +
                             "- Si falta destinatario o texto, needs_confirmation=true y clarifying_question adecuada.\n" +
-                            "Regla: si el usuario pide hora o día/fecha actuales, devolvé QUERY_TIME o QUERY_DATE (no ANSWER/UNKNOWN).\n" +
+                            "\n" +
+                            "Hora/fecha ACTUAL (MUY IMPORTANTE):\n" +
+                            "- Usá QUERY_TIME/QUERY_DATE **solo** si el usuario pide explícitamente la hora/fecha **actual** (p. ej. \"¿qué hora es?\", \"decime la hora ahora\", \"¿qué día es hoy?\").\n" +
+                            "- **NO** uses QUERY_TIME para preguntas del tipo \"¿a qué hora …?\", \"la hora en la que …\", horarios de apertura, agenda o recomendaciones. Esas van como ANSWER (u otra intención si corresponde).\n" +
+                            "\n" +
                             "Locale: " + locale + " | TZ: " + tz + " | now_epoch_ms: " + nowMs + "\n" +
                             "Para QUERY_TIME/QUERY_DATE NO generes ack_tts (el cliente habla la respuesta).";
 
@@ -161,13 +173,16 @@ public class NluService {
  "slots":{"contact_query":"sofi","message_text":null},
  "ack_tts":null,"clarifying_question":"¿Qué querés que le diga a Sofi?","safety_notes":null}""");
 
-            // ===== Few-shots negativos (evitar falsos positivos) =====
-            ObjectNode exNeg1U = objectMsg("user", "Como estas?");
-            ObjectNode exNeg1A = objectMsg("assistant", """
-{"intent":"ANSWER","confidence":0.80,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exNeg2U = objectMsg("user", "No, no, nada. No te llamé recién.");
-            ObjectNode exNeg2A = objectMsg("assistant", """
-{"intent":"ANSWER","confidence":0.85,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            // ===== Few-shots negativos semánticos para evitar QUERY_TIME por “a qué hora …” =====
+            ObjectNode exNegTimeSem1U = objectMsg("user", "Decime la hora en la que me recomendás cepillarme los dientes.");
+            ObjectNode exNegTimeSem1A = objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode exNegTimeSem2U = objectMsg("user", "¿A qué hora abre el banco Galicia?");
+            ObjectNode exNegTimeSem2A = objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode exNegTimeSem3U = objectMsg("user", "¿A qué hora me conviene cenar si entreno a las 20?");
+            ObjectNode exNegTimeSem3A = objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -276,9 +291,15 @@ public class NluService {
             input.add(exMsg2U); input.add(exMsg2A);
             input.add(exMsg3U); input.add(exMsg3A);
             input.add(exMsg4U); input.add(exMsg4A);
+
             // negativos anti-falsos
-            input.add(exNeg1U); input.add(exNeg1A);
-            input.add(exNeg2U); input.add(exNeg2A);
+            input.add(exNeg1U()); input.add(exNeg1A());
+            input.add(exNeg2U()); input.add(exNeg2A());
+
+            // negativos semánticos de "a qué hora ..."
+            input.add(exNegTimeSem1U); input.add(exNegTimeSem1A);
+            input.add(exNegTimeSem2U); input.add(exNegTimeSem2A);
+            input.add(exNegTimeSem3U); input.add(exNegTimeSem3A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
@@ -304,10 +325,12 @@ public class NluService {
                 String body = (resp.body() != null) ? resp.body().string() : "";
                 if (!resp.isSuccessful()) {
                     log.warn("NLU/route HTTP {}. errBody(start)={}", resp.code(), truncate(body, 400));
-                    NluRouteResponse guard = guardrailTimeOrDate(norm);
-                    if (guard == null) guard = guardrailCall(norm);
-                    if (guard == null) guard = guardrailSendMessage(norm);
-                    if (guard != null) return guard;
+                    if (USE_GUARDRAILS_ON_FAILURE) {
+                        NluRouteResponse guard = guardrailTimeOrDate(norm);
+                        if (guard == null) guard = guardrailCall(norm);
+                        if (guard == null) guard = guardrailSendMessage(norm);
+                        if (guard != null) return guard;
+                    }
                     return fallback("ANSWER", "No estoy seguro, ¿podés repetir?");
                 } else {
                     log.debug("OpenAI HTTP={} body(start)={}", resp.code(), truncate(body, 400));
@@ -316,10 +339,12 @@ public class NluService {
                 // Parse: prioriza output_parsed
                 String json = extractOutputText(mapper.readTree(body));
                 if (json == null || json.isBlank()) {
-                    NluRouteResponse guard = guardrailTimeOrDate(norm);
-                    if (guard == null) guard = guardrailCall(norm);
-                    if (guard == null) guard = guardrailSendMessage(norm);
-                    if (guard != null) return guard;
+                    if (USE_GUARDRAILS_ON_FAILURE) {
+                        NluRouteResponse guard = guardrailTimeOrDate(norm);
+                        if (guard == null) guard = guardrailCall(norm);
+                        if (guard == null) guard = guardrailSendMessage(norm);
+                        if (guard != null) return guard;
+                    }
                     log.warn("NLU/route sin output. text='{}'", text);
                     return fallback("ANSWER", "No te escuché bien. ¿Podés repetir?");
                 }
@@ -330,7 +355,7 @@ public class NluService {
                 if (out.intent == null) out.intent = "UNKNOWN";
                 if (out.slots == null) out.slots = new NluRouteResponse.Slots();
 
-                // ===== Post-model gate: SEND_MESSAGE =====
+                // ===== Post-model minimal: SEND_MESSAGE sanity =====
                 if ("SEND_MESSAGE".equalsIgnoreCase(out.intent)) {
                     // Solo aceptamos si el texto realmente contiene patrón de mensaje
                     MsgParts mp = extractMsgParts(norm);
@@ -362,33 +387,13 @@ public class NluService {
                     }
                 }
 
-                // Guardarraíl si el modelo dijo ANSWER/UNKNOWN
-                String upper = out.intent.toUpperCase(Locale.ROOT);
-                if ("ANSWER".equals(upper) || "UNKNOWN".equals(upper)) {
+                // (Opcional) Guardrails post-modelo: deshabilitados por defecto
+                if (USE_GUARDRAILS_AFTER_MODEL &&
+                        ("ANSWER".equalsIgnoreCase(out.intent) || "UNKNOWN".equalsIgnoreCase(out.intent))) {
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
                     if (guard == null) guard = guardrailCall(norm);
                     if (guard == null) guard = guardrailSendMessage(norm);
                     if (guard != null) out = guard;
-                }
-
-                // === Corrección: si SEND_MESSAGE tiene contacto + texto, NO pedir confirmación ===
-                if ("SEND_MESSAGE".equalsIgnoreCase(out.intent)) {
-                    String cq = (out.slots != null && out.slots.contact_query != null)
-                            ? out.slots.contact_query.trim() : "";
-                    String mt = (out.slots != null && out.slots.message_text != null)
-                            ? out.slots.message_text.trim() : "";
-
-                    if (!cq.isEmpty() && !mt.isEmpty()) {
-                        out.needs_confirmation = false;
-                        out.clarifying_question = null;
-
-                        // Si el modelo no propuso ack, damos uno por defecto.
-                        if (out.ack_tts == null || out.ack_tts.isBlank()) {
-                            out.ack_tts = "Listo, le mando a " + cq + ": '" + mt + "'.";
-                        }
-                        // Subí un poco la confianza si vino baja de casualidad
-                        if (out.confidence < 0.95) out.confidence = 0.95;
-                    }
                 }
 
                 // Para hora/fecha, garantizamos que el cliente hable
@@ -416,21 +421,30 @@ public class NluService {
         } catch (Exception e) {
             log.error("NLU/route error", e);
             String norm = normalizeLite(req != null ? req.text : null);
-            NluRouteResponse guard = guardrailTimeOrDate(norm);
-            if (guard == null) guard = guardrailCall(norm);
-            if (guard == null) guard = guardrailSendMessage(norm);
-            if (guard != null) return guard;
+            if (USE_GUARDRAILS_ON_FAILURE) {
+                NluRouteResponse guard = guardrailTimeOrDate(norm);
+                if (guard == null) guard = guardrailCall(norm);
+                if (guard == null) guard = guardrailSendMessage(norm);
+                if (guard != null) return guard;
+            }
             return fallback("ANSWER","Perdón, tuve un problema procesando eso.");
         }
     }
 
-    // ===== Guardarraíles =====
+    // ===== Guardarraíles (solo fallback) =====
     private static NluRouteResponse guardrailTimeOrDate(String norm) {
         if (norm == null || norm.isBlank()) return null;
-        if (containsAny(norm, "que hora es","tenes la hora","decime la hora","me decis la hora","tenes hora","hora es","la hora es","hora?","hora"))
-            return quick("QUERY_TIME");
-        if (containsAny(norm, "que dia es","que dia es hoy","que fecha es","fecha de hoy","que dia estamos","me decis la fecha","decime la fecha"))
-            return quick("QUERY_DATE");
+
+        // match explícito para HORA ACTUAL
+        boolean asksTimeNow =
+                norm.matches(".*\\b(que hora es|tenes la hora|tienes la hora|decime la hora( ahora)?|dime la hora( ahora)?|me decis la hora|me dices la hora|hora actual)\\b.*");
+
+        // match explícito para FECHA ACTUAL
+        boolean asksDateNow =
+                norm.matches(".*\\b(que dia es( hoy)?|que fecha es( hoy)?|fecha de hoy|que dia estamos|me decis la fecha|me dices la fecha|decime la fecha|dime la fecha)\\b.*");
+
+        if (asksTimeNow)  return quick("QUERY_TIME");
+        if (asksDateNow)  return quick("QUERY_DATE");
         return null;
     }
 
@@ -662,6 +676,14 @@ public class NluService {
         msg.put("content", text);
         return msg;
     }
+
+    // Atajos para negativos simples ya usados antes
+    private ObjectNode exNeg1U() { return objectMsg("user", "Como estas?"); }
+    private ObjectNode exNeg1A() { return objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.80,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}"""); }
+    private ObjectNode exNeg2U() { return objectMsg("user", "No, no, nada. No te llamé recién."); }
+    private ObjectNode exNeg2A() { return objectMsg("assistant", """
+{"intent":"ANSWER","confidence":0.85,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}"""); }
 
     private static String truncate(String s, int max) {
         if (s == null) return "";
