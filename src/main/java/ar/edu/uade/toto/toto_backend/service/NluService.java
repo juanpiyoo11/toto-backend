@@ -24,10 +24,8 @@ public class NluService {
     private static final Logger log = LoggerFactory.getLogger(NluService.class);
 
     // --- Flags de estrategia ---
-    // El modelo manda: NO aplicar guardrails post-modelo
-    private static final boolean USE_GUARDRAILS_AFTER_MODEL = false;
-    // Usar guardrails SOLO como fallback si la API falla o viene sin output
-    private static final boolean USE_GUARDRAILS_ON_FAILURE = true;
+    private static final boolean USE_GUARDRAILS_AFTER_MODEL = false;   // el modelo manda
+    private static final boolean USE_GUARDRAILS_ON_FAILURE = true;     // solo fallback si falla API
 
     private final OkHttpClient http = new OkHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
@@ -65,32 +63,47 @@ public class NluService {
             String tz     = (req != null && req.tz != null && !req.tz.isBlank()) ? req.tz : defaultTz;
             long nowMs    = (req != null && req.now_epoch_ms != null) ? req.now_epoch_ms : System.currentTimeMillis();
 
-            // ===== Normalización ligera para guardarraíles =====
+            // ===== Normalización ligera =====
             String norm = normalizeLite(text);
 
-            // ===== Prompt (clasificador puro) =====
+            // ===== Prompt (clasificador) =====
             String systemPrompt =
                     "Sos el router NLU de \"Toto\". Devolvés SOLO JSON válido según el schema (sin texto extra).\n" +
                             "Evitá falsos positivos. Si hay duda real: needs_confirmation=true y clarifying_question breve.\n" +
-                            "Elegí exactamente una intención: CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, ANSWER, CANCEL, UNKNOWN.\n" +
+                            "Elegí exactamente una intención entre: " +
+                            "CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, " +
+                            "SPOTIFY_PLAY, SPOTIFY_PAUSE, SPOTIFY_RESUME, SPOTIFY_NEXT, SPOTIFY_PREV, " +
+                            "SPOTIFY_SET_VOLUME, SPOTIFY_SET_SHUFFLE, SPOTIFY_SET_REPEAT, " +
+                            "ANSWER, CANCEL, UNKNOWN.\n" +
                             "\n" +
                             "Reglas de llamada:\n" +
-                            "- Órdenes imperativas o en infinitivo (\"llamá\", \"llamar\", \"llamame\", \"quiero que llames …\") → CALL.\n" +
+                            "- Imperativos/infinitivo (\"llamá\", \"llamar\", \"llamame\", \"quiero que llames …\") → CALL.\n" +
                             "- Preguntas de capacidad/permiso (\"¿me podés/podrías/puedes llamar a …?\") → CALL si hay contacto explícito.\n" +
                             "- Enunciados descriptivos en 2da persona (\"llamás/llamas a …\") → CALL.\n" +
                             "\n" +
                             "Reglas de mensaje:\n" +
-                            "- \"mandale/escribile/decile/avisale\" + \"a <persona>\" + (\"que\" | \":\") + <texto> → SEND_MESSAGE con contact_query y message_text.\n" +
+                            "- \"mandale/escribile/escribirle/decile/decirle/avisale/enviá/enviar/enviale/enviarle\" + \"a <persona>\" + (\"que\" | \":\") + <texto> → SEND_MESSAGE.\n" +
                             "- Si falta destinatario o texto, needs_confirmation=true y clarifying_question adecuada.\n" +
                             "\n" +
-                            "Hora/fecha ACTUAL (MUY IMPORTANTE):\n" +
-                            "- Usá QUERY_TIME/QUERY_DATE **solo** si el usuario pide explícitamente la hora/fecha **actual** (p. ej. \"¿qué hora es?\", \"decime la hora ahora\", \"¿qué día es hoy?\").\n" +
-                            "- **NO** uses QUERY_TIME para preguntas del tipo \"¿a qué hora …?\", \"la hora en la que …\", horarios de apertura, agenda o recomendaciones. Esas van como ANSWER (u otra intención si corresponde).\n" +
+                            "Hora/fecha ACTUAL:\n" +
+                            "- Usá QUERY_TIME/QUERY_DATE solo si piden explícitamente hora/fecha actual (\"¿qué hora es?\", \"¿qué día es hoy?\").\n" +
+                            "- NO uses QUERY_TIME para \"¿a qué hora ...?\", horarios, agenda o recomendaciones → eso es ANSWER.\n" +
+                            "\n" +
+                            "Spotify (reproducción de música):\n" +
+                            "- \"poné/reproducí/tocá\" + <tema|artista|playlist|álbum> → SPOTIFY_PLAY. Guardá la consigna en slots.message_text.\n" +
+                            "- \"poné música\" sin detalle → SPOTIFY_PLAY con needs_confirmation=true y clarifying_question=\"¿Qué querés escuchar?\".\n" +
+                            "- \"poné pausa\"/\"pausá\"/\"pará la música\" → SPOTIFY_PAUSE.\n" +
+                            "- \"seguí\"/\"reanudar\"/\"continuá la música\" → SPOTIFY_RESUME.\n" +
+                            "- \"siguiente\"/\"pasá el tema\" → SPOTIFY_NEXT. | \"anterior\" → SPOTIFY_PREV.\n" +
+                            "- Volumen: \"volumen al 40%\" → SPOTIFY_SET_VOLUME con slots.message_text=\"40\"; " +
+                            "\"subí el volumen\" → \"up\"; \"bajá el volumen\" → \"down\".\n" +
+                            "- Shuffle: \"activá/sacá el aleatorio\" → SPOTIFY_SET_SHUFFLE con slots.message_text=\"on\"/\"off\".\n" +
+                            "- Repeat: \"repetir tema\" → SPOTIFY_SET_REPEAT con slots.message_text=\"track\"; \"repetir lista\" → \"context\"; \"sacar repeat\" → \"off\".\n" +
                             "\n" +
                             "Locale: " + locale + " | TZ: " + tz + " | now_epoch_ms: " + nowMs + "\n" +
                             "Para QUERY_TIME/QUERY_DATE NO generes ack_tts (el cliente habla la respuesta).";
 
-            // ===== Few-shots =====
+            // ===== Few-shots base =====
             ObjectNode ex1U = objectMsg("user", "¿Qué hora es?");
             ObjectNode ex1A = objectMsg("assistant", """
 {"intent":"QUERY_TIME","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
@@ -111,78 +124,108 @@ public class NluService {
             ObjectNode ex6A = objectMsg("assistant", """
 {"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":5,"minute":0},"ack_tts":"Listo, programo la alarma.","clarifying_question":null,"safety_notes":null}""");
 
-            ObjectNode exCall1U = objectMsg("user", "Llama a Kevin");
+            // llamadas variantes
+            ObjectNode exCall1U = objectMsg("user", "llamalo a Kevin");
             ObjectNode exCall1A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCall2U = objectMsg("user", "llamalo a Kevin");
-            ObjectNode exCall2A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCall3U = objectMsg("user", "Se llama a Kevin.");
-            ObjectNode exCall3A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.97,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCall4U = objectMsg("user", "Chama a Kevin");
-            ObjectNode exCall4A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.97,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCall5U = objectMsg("user", "Yamalo a Kevin");
-            ObjectNode exCall5A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.97,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCall6U = objectMsg("user", "Shama a Kevin");
-            ObjectNode exCall6A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.96,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCall7U = objectMsg("user", "Llamar a Kevin");
-            ObjectNode exCall7A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCallQ1U = objectMsg("user", "¿Me podés llamar a Kevin?");
-            ObjectNode exCallQ1A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.97,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Ok, llamo a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCallQ2U = objectMsg("user", "¿Podrías llamar a Kevin?");
-            ObjectNode exCallQ2A = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.96,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exCallStmtU = objectMsg("user", "Llamás a Kevin");
-            ObjectNode exCallStmtA = objectMsg("assistant", """
-{"intent":"CALL","confidence":0.95,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
 
-            ObjectNode exWake1U = objectMsg("user", "¿Me despertás a la una de la tarde?");
-            ObjectNode exWake1A = objectMsg("assistant", """
-{"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":13,"minute":0},"ack_tts":"Listo, te despierto a la una.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exWake2U = objectMsg("user", "despertame a las 7 y media");
-            ObjectNode exWake2A = objectMsg("assistant", """
-{"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":7,"minute":30},"ack_tts":"Perfecto, alarma a las siete y media.","clarifying_question":null,"safety_notes":null}""");
-
+            // mensajes
             ObjectNode exMsg1U = objectMsg("user", "Mandale a Kevin que llego en 10");
             ObjectNode exMsg1A = objectMsg("assistant", """
 {"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
  "slots":{"contact_query":"kevin","message_text":"llego en 10"},
  "ack_tts":"Listo, se lo mando a Kevin.","clarifying_question":null,"safety_notes":null}""");
-
-            ObjectNode exMsg2U = objectMsg("user", "Escribile a mamá: estoy saliendo");
+            ObjectNode exMsg2U = objectMsg("user", "Mandale mensaje a Sofi");
             ObjectNode exMsg2A = objectMsg("assistant", """
-{"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
- "slots":{"contact_query":"mama","message_text":"estoy saliendo"},
- "ack_tts":"Ok, le escribo a mamá.","clarifying_question":null,"safety_notes":null}""");
-
-            ObjectNode exMsg3U = objectMsg("user", "Avisale a Lucas que voy a llegar 20 tarde");
-            ObjectNode exMsg3A = objectMsg("assistant", """
-{"intent":"SEND_MESSAGE","confidence":0.97,"needs_confirmation":false,
- "slots":{"contact_query":"lucas","message_text":"voy a llegar 20 tarde"},
- "ack_tts":"Hecho, le aviso a Lucas.","clarifying_question":null,"safety_notes":null}""");
-
-            ObjectNode exMsg4U = objectMsg("user", "Mandale mensaje a Sofi");
-            ObjectNode exMsg4A = objectMsg("assistant", """
 {"intent":"SEND_MESSAGE","confidence":0.95,"needs_confirmation":true,
  "slots":{"contact_query":"sofi","message_text":null},
  "ack_tts":null,"clarifying_question":"¿Qué querés que le diga a Sofi?","safety_notes":null}""");
+            // NUEVO: infinitivo "decirle"
+            ObjectNode exMsg3U = objectMsg("user", "Decirle a Flor que la amo mucho");
+            ObjectNode exMsg3A = objectMsg("assistant", """
+{"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
+ "slots":{"contact_query":"flor","message_text":"la amo mucho"},
+ "ack_tts":"Listo, lo mando a Flor.","clarifying_question":null,"safety_notes":null}""");
 
-            // ===== Few-shots negativos semánticos para evitar QUERY_TIME por “a qué hora …” =====
+            // Negativos semánticos: NO QUERY_TIME para “a qué hora ...”
             ObjectNode exNegTimeSem1U = objectMsg("user", "Decime la hora en la que me recomendás cepillarme los dientes.");
             ObjectNode exNegTimeSem1A = objectMsg("assistant", """
 {"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exNegTimeSem2U = objectMsg("user", "¿A qué hora abre el banco Galicia?");
-            ObjectNode exNegTimeSem2A = objectMsg("assistant", """
-{"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode exNegTimeSem3U = objectMsg("user", "¿A qué hora me conviene cenar si entreno a las 20?");
-            ObjectNode exNegTimeSem3A = objectMsg("assistant", """
-{"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+
+            // ===== Few-shots Spotify =====
+            ObjectNode sp1U = objectMsg("user", "Poné Soda Stereo");
+            ObjectNode sp1A = objectMsg("assistant", """
+{"intent":"SPOTIFY_PLAY","confidence":0.97,"needs_confirmation":false,
+ "slots":{"message_text":"soda stereo"},
+ "ack_tts":"Reproduciendo Soda Stereo en Spotify.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp2U = objectMsg("user", "Reproducí De música ligera");
+            ObjectNode sp2A = objectMsg("assistant", """
+{"intent":"SPOTIFY_PLAY","confidence":0.97,"needs_confirmation":false,
+ "slots":{"message_text":"de musica ligera"},
+ "ack_tts":"Voy con De música ligera.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp3U = objectMsg("user", "Poné música");
+            ObjectNode sp3A = objectMsg("assistant", """
+{"intent":"SPOTIFY_PLAY","confidence":0.90,"needs_confirmation":true,
+ "slots":{"message_text":null},
+ "ack_tts":null,"clarifying_question":"¿Qué querés escuchar?","safety_notes":null}""");
+
+            ObjectNode sp4U = objectMsg("user", "Poné pausa");
+            ObjectNode sp4A = objectMsg("assistant", """
+{"intent":"SPOTIFY_PAUSE","confidence":0.99,"needs_confirmation":false,
+ "slots":{},"ack_tts":"Pauso la música.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp5U = objectMsg("user", "Seguí la música");
+            ObjectNode sp5A = objectMsg("assistant", """
+{"intent":"SPOTIFY_RESUME","confidence":0.99,"needs_confirmation":false,
+ "slots":{},"ack_tts":"Sigo reproduciendo.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp6U = objectMsg("user", "Pasá al siguiente");
+            ObjectNode sp6A = objectMsg("assistant", """
+{"intent":"SPOTIFY_NEXT","confidence":0.99,"needs_confirmation":false,
+ "slots":{},"ack_tts":"Siguiente tema.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp7U = objectMsg("user", "Volvé al anterior");
+            ObjectNode sp7A = objectMsg("assistant", """
+{"intent":"SPOTIFY_PREV","confidence":0.99,"needs_confirmation":false,
+ "slots":{},"ack_tts":"Tema anterior.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp8U = objectMsg("user", "Volumen al 40 por ciento");
+            ObjectNode sp8A = objectMsg("assistant", """
+{"intent":"SPOTIFY_SET_VOLUME","confidence":0.98,"needs_confirmation":false,
+ "slots":{"message_text":"40"},
+ "ack_tts":"Volumen en 40%.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp9U = objectMsg("user", "Subí el volumen");
+            ObjectNode sp9A = objectMsg("assistant", """
+{"intent":"SPOTIFY_SET_VOLUME","confidence":0.95,"needs_confirmation":false,
+ "slots":{"message_text":"up"},
+ "ack_tts":"Subo el volumen.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp10U = objectMsg("user", "Activá el modo aleatorio");
+            ObjectNode sp10A = objectMsg("assistant", """
+{"intent":"SPOTIFY_SET_SHUFFLE","confidence":0.97,"needs_confirmation":false,
+ "slots":{"message_text":"on"},
+ "ack_tts":"Activo aleatorio.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp11U = objectMsg("user", "Sacá el aleatorio");
+            ObjectNode sp11A = objectMsg("assistant", """
+{"intent":"SPOTIFY_SET_SHUFFLE","confidence":0.97,"needs_confirmation":false,
+ "slots":{"message_text":"off"},
+ "ack_tts":"Desactivo aleatorio.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp12U = objectMsg("user", "Repetir tema");
+            ObjectNode sp12A = objectMsg("assistant", """
+{"intent":"SPOTIFY_SET_REPEAT","confidence":0.97,"needs_confirmation":false,
+ "slots":{"message_text":"track"},
+ "ack_tts":"Repito el tema.","clarifying_question":null,"safety_notes":null}""");
+
+            ObjectNode sp13U = objectMsg("user", "Sacar repeat");
+            ObjectNode sp13A = objectMsg("assistant", """
+{"intent":"SPOTIFY_SET_REPEAT","confidence":0.97,"needs_confirmation":false,
+ "slots":{"message_text":"off"},
+ "ack_tts":"Desactivo repetir.","clarifying_question":null,"safety_notes":null}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -204,9 +247,14 @@ public class NluService {
             schema.put("additionalProperties", false);
 
             ObjectNode props = schema.putObject("properties");
-            props.putObject("intent").put("type","string").putArray("enum")
-                    .add("CALL").add("SET_ALARM").add("QUERY_TIME").add("QUERY_DATE")
-                    .add("SEND_MESSAGE").add("ANSWER").add("CANCEL").add("UNKNOWN");
+            ArrayNode intents = props.putObject("intent").put("type","string").putArray("enum");
+            intents.add("CALL").add("SET_ALARM").add("QUERY_TIME").add("QUERY_DATE")
+                    .add("SEND_MESSAGE")
+                    .add("SPOTIFY_PLAY").add("SPOTIFY_PAUSE").add("SPOTIFY_RESUME")
+                    .add("SPOTIFY_NEXT").add("SPOTIFY_PREV")
+                    .add("SPOTIFY_SET_VOLUME").add("SPOTIFY_SET_SHUFFLE").add("SPOTIFY_SET_REPEAT")
+                    .add("ANSWER").add("CANCEL").add("UNKNOWN");
+
             props.putObject("confidence").put("type","number").put("minimum",0.0).put("maximum",1.0);
             props.putObject("needs_confirmation").put("type","boolean");
 
@@ -216,7 +264,6 @@ public class NluService {
             slots.put("additionalProperties", false);
             ObjectNode slotsProps = slots.putObject("properties");
 
-            // tipos unión para permitir null
             ArrayNode tContact = slotsProps.putObject("contact_query").putArray("type");
             tContact.add("string").add("null");
 
@@ -234,7 +281,6 @@ public class NluService {
             ArrayNode tMsg = slotsProps.putObject("message_text").putArray("type");
             tMsg.add("string").add("null");
 
-            // required de slots = TODAS sus keys
             ArrayNode slotsReq = slots.putArray("required");
             slotsReq.add("contact_query");
             slotsReq.add("hour");
@@ -242,7 +288,6 @@ public class NluService {
             slotsReq.add("datetime_iso");
             slotsReq.add("message_text");
 
-            // opcionales raíz (también unión con null)
             ArrayNode tClar = props.putObject("clarifying_question").putArray("type");
             tClar.add("string").add("null");
             ArrayNode tAck = props.putObject("ack_tts").putArray("type");
@@ -250,7 +295,6 @@ public class NluService {
             ArrayNode tSafe = props.putObject("safety_notes").putArray("type");
             tSafe.add("string").add("null");
 
-            // required raíz = TODAS las keys declaradas en properties
             ArrayNode rootReq = schema.putArray("required");
             rootReq.add("intent");
             rootReq.add("confidence");
@@ -276,30 +320,25 @@ public class NluService {
             input.add(ex5U); input.add(ex5A);
             input.add(ex6U); input.add(ex6A);
             input.add(exCall1U); input.add(exCall1A);
-            input.add(exCall2U); input.add(exCall2A);
-            input.add(exCall3U); input.add(exCall3A);
-            input.add(exCall4U); input.add(exCall4A);
-            input.add(exCall5U); input.add(exCall5A);
-            input.add(exCall6U); input.add(exCall6A);
-            input.add(exCall7U); input.add(exCall7A);
-            input.add(exCallQ1U); input.add(exCallQ1A);
-            input.add(exCallQ2U); input.add(exCallQ2A);
-            input.add(exCallStmtU); input.add(exCallStmtA);
-            input.add(exWake1U); input.add(exWake1A);
-            input.add(exWake2U); input.add(exWake2A);
             input.add(exMsg1U); input.add(exMsg1A);
             input.add(exMsg2U); input.add(exMsg2A);
             input.add(exMsg3U); input.add(exMsg3A);
-            input.add(exMsg4U); input.add(exMsg4A);
-
-            // negativos anti-falsos
-            input.add(exNeg1U()); input.add(exNeg1A());
-            input.add(exNeg2U()); input.add(exNeg2A());
-
-            // negativos semánticos de "a qué hora ..."
             input.add(exNegTimeSem1U); input.add(exNegTimeSem1A);
-            input.add(exNegTimeSem2U); input.add(exNegTimeSem2A);
-            input.add(exNegTimeSem3U); input.add(exNegTimeSem3A);
+
+            // Spotify shots
+            input.add(sp1U); input.add(sp1A);
+            input.add(sp2U); input.add(sp2A);
+            input.add(sp3U); input.add(sp3A);
+            input.add(sp4U); input.add(sp4A);
+            input.add(sp5U); input.add(sp5A);
+            input.add(sp6U); input.add(sp6A);
+            input.add(sp7U); input.add(sp7A);
+            input.add(sp8U); input.add(sp8A);
+            input.add(sp9U); input.add(sp9A);
+            input.add(sp10U); input.add(sp10A);
+            input.add(sp11U); input.add(sp11A);
+            input.add(sp12U); input.add(sp12A);
+            input.add(sp13U); input.add(sp13A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
@@ -336,7 +375,6 @@ public class NluService {
                     log.debug("OpenAI HTTP={} body(start)={}", resp.code(), truncate(body, 400));
                 }
 
-                // Parse: prioriza output_parsed
                 String json = extractOutputText(mapper.readTree(body));
                 if (json == null || json.isBlank()) {
                     if (USE_GUARDRAILS_ON_FAILURE) {
@@ -355,18 +393,9 @@ public class NluService {
                 if (out.intent == null) out.intent = "UNKNOWN";
                 if (out.slots == null) out.slots = new NluRouteResponse.Slots();
 
-                // ===== Post-model minimal: SEND_MESSAGE sanity =====
+                // ===== Post-model: SEND_MESSAGE robusto =====
                 if ("SEND_MESSAGE".equalsIgnoreCase(out.intent)) {
-                    // Solo aceptamos si el texto realmente contiene patrón de mensaje
                     MsgParts mp = extractMsgParts(norm);
-                    boolean looksMsg = containsAny(norm,
-                            " mandale ", " manda ", " mandar ",
-                            " escribile ", " escribe ", " escribir ",
-                            " decile ", " dile ",
-                            " avisale ", " avisa ", " avisar ",
-                            " mensaje a ", " msj a ", " mandale un mensaje a ", " mandale mensaje a ");
-
-                    // Completar slots con lo extraído localmente (si faltan)
                     if (mp != null) {
                         if ((out.slots.contact_query == null || out.slots.contact_query.isBlank()) && mp.who != null)
                             out.slots.contact_query = mp.who;
@@ -374,20 +403,28 @@ public class NluService {
                             out.slots.message_text = mp.text;
                     }
 
-                    // Si no hay patrón claro o faltan partes importantes → pedir confirmación
-                    if (!looksMsg || mp == null || out.slots.contact_query == null || out.slots.contact_query.isBlank()
-                            || out.slots.message_text == null || out.slots.message_text.isBlank()) {
+                    boolean hasWho  = out.slots.contact_query != null && !out.slots.contact_query.isBlank();
+                    boolean hasText = out.slots.message_text != null && !out.slots.message_text.isBlank();
+
+                    if (hasWho && hasText) {
+                        // ✅ todo completo → sin repregunta (aunque el modelo haya puesto needs_confirmation=true)
+                        out.needs_confirmation = false;
+                        if (out.ack_tts == null || out.ack_tts.isBlank())
+                            out.ack_tts = "Listo, lo mando.";
+                        if (out.confidence < 0.95) out.confidence = 0.95;
+                        out.clarifying_question = null;
+                    } else {
+                        // Falta algo → una sola repregunta clara
                         out.needs_confirmation = true;
-                        out.clarifying_question = (out.slots.contact_query == null || out.slots.contact_query.isBlank())
-                                ? "¿A quién querés mandarle el mensaje?"
-                                : ("¿Qué querés que le diga a " + out.slots.contact_query + "?");
-                        out.ack_tts = null; // no anunciar envío
-                        // Reforzar confianza moderada
+                        out.ack_tts = null;
+                        out.clarifying_question = hasWho
+                                ? ("¿Qué querés que le diga a " + out.slots.contact_query + "?")
+                                : "¿A quién querés mandarle el mensaje?";
                         if (out.confidence > 0.9) out.confidence = 0.9;
                     }
                 }
 
-                // (Opcional) Guardrails post-modelo: deshabilitados por defecto
+                // Guardrails post-model deshabilitados por defecto
                 if (USE_GUARDRAILS_AFTER_MODEL &&
                         ("ANSWER".equalsIgnoreCase(out.intent) || "UNKNOWN".equalsIgnoreCase(out.intent))) {
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
@@ -396,14 +433,14 @@ public class NluService {
                     if (guard != null) out = guard;
                 }
 
-                // Para hora/fecha, garantizamos que el cliente hable
+                // Para hora/fecha, habla el cliente
                 if ("QUERY_TIME".equals(out.intent) || "QUERY_DATE".equals(out.intent)) {
                     out.ack_tts = null;
                     out.needs_confirmation = false;
                     if (out.confidence < 0.95) out.confidence = 0.95;
                 }
 
-                // Bounds de confianza
+                // Bounds
                 if (out.confidence < 0.0) out.confidence = 0.0;
                 if (out.confidence > 1.0) out.confidence = 1.0;
 
@@ -434,15 +471,10 @@ public class NluService {
     // ===== Guardarraíles (solo fallback) =====
     private static NluRouteResponse guardrailTimeOrDate(String norm) {
         if (norm == null || norm.isBlank()) return null;
-
-        // match explícito para HORA ACTUAL
         boolean asksTimeNow =
                 norm.matches(".*\\b(que hora es|tenes la hora|tienes la hora|decime la hora( ahora)?|dime la hora( ahora)?|me decis la hora|me dices la hora|hora actual)\\b.*");
-
-        // match explícito para FECHA ACTUAL
         boolean asksDateNow =
                 norm.matches(".*\\b(que dia es( hoy)?|que fecha es( hoy)?|fecha de hoy|que dia estamos|me decis la fecha|me dices la fecha|decime la fecha|dime la fecha)\\b.*");
-
         if (asksTimeNow)  return quick("QUERY_TIME");
         if (asksDateNow)  return quick("QUERY_DATE");
         return null;
@@ -473,12 +505,8 @@ public class NluService {
 
     private NluRouteResponse guardrailSendMessage(String norm) {
         if (norm == null || norm.isBlank()) return null;
-        boolean looksMsg = containsAny(norm,
-                " mandale ", " manda ", " mandar ",
-                " escribile ", " escribe ", " escribir ",
-                " decile ", " dile ",
-                " avisale ", " avisa ", " avisar ",
-                " mensaje a ", " msj a ", " mandale un mensaje a ", " mandale mensaje a ");
+
+        boolean looksMsg = looksMsgSpanish(norm);
         if (!looksMsg) return null;
 
         MsgParts m = extractMsgParts(norm);
@@ -508,8 +536,9 @@ public class NluService {
     private static final class MsgParts { final String who, text; MsgParts(String w, String t){who=w;text=t;} }
 
     private MsgParts extractMsgParts(String norm) {
+        // norm ya viene sin acentos y en minúscula
         String[] pats = new String[] {
-                "\\b(?:mandale|manda|mandar|escribile|escribe|escribir|decile|dile|avisale|avisa|avisar)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|de que|:|–|-)?\\s*(.+)$",
+                "\\b(?:mandale|manda|mandar|escribile|escribirle|escribe|escribir|decile|decirle|dile|avisale|avisa|avisar|envia|enviar|enviale|enviarle)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|de que|:|–|-)?\\s*(.+)$",
                 "\\b(?:mensaje|msj)\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|:)?\\s*(.+)$"
         };
         for (String p : pats) {
@@ -521,7 +550,7 @@ public class NluService {
             }
         }
         java.util.regex.Matcher m2 = java.util.regex.Pattern
-                .compile("\\b(?:mandale|manda|escribile|escribe|decile|dile|avisale|avisa|avisar)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\b")
+                .compile("\\b(?:mandale|manda|mandar|escribile|escribirle|escribe|escribir|decile|decirle|dile|avisale|avisa|avisar|envia|enviar|enviale|enviarle)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\b")
                 .matcher(norm);
         if (m2.find()) {
             String who = cleanPersonGuard(m2.group(1));
@@ -607,9 +636,17 @@ public class NluService {
         return s;
     }
 
+    // ===== Helpers =====
     private static boolean containsAny(String haystack, String... needles) {
         for (String n : needles) if (haystack.contains(n)) return true;
         return false;
+    }
+
+    /** Detector robusto de intención de MENSAJE (palabras con límites). */
+    private static boolean looksMsgSpanish(String norm) {
+        if (norm == null || norm.isBlank()) return false;
+        String re = ".*\\b(?:mandale|manda|mandar|escribile|escribirle|escribe|escribir|decile|decirle|dile|avisale|avisa|avisar|envia|enviar|enviale|enviarle|mensaje\\s+a|msj\\s+a)\\b.*";
+        return norm.matches(re);
     }
 
     private static String normalizeLite(String s) {
@@ -634,12 +671,10 @@ public class NluService {
 
     // ===== Extractor del Responses API =====
     private String extractOutputText(JsonNode root) {
-        // 1) cuando el server ya parseó/validó
         JsonNode parsed = root.path("output_parsed");
         if (!parsed.isMissingNode() && !parsed.isNull()) {
             try { return mapper.writeValueAsString(parsed); } catch (Exception ignored) {}
         }
-        // 2) respuesta en output[].content[].text
         JsonNode output = root.path("output");
         if (output.isArray() && output.size() > 0) {
             JsonNode content = output.get(0).path("content");
@@ -648,7 +683,6 @@ public class NluService {
                 if (t != null && !t.isBlank()) return t;
             }
         }
-        // 3) compat Chat Completions
         JsonNode choices = root.path("choices");
         if (choices.isArray() && choices.size() > 0) {
             String cc = choices.get(0).path("message").path("content").asText(null);
@@ -669,21 +703,12 @@ public class NluService {
         catch (Exception e) { return "{}"; }
     }
 
-    // Mensaje simple (como tu OpenAIPromptService)
     private ObjectNode objectMsg(String role, String text) {
         ObjectNode msg = mapper.createObjectNode();
         msg.put("role", role);
         msg.put("content", text);
         return msg;
     }
-
-    // Atajos para negativos simples ya usados antes
-    private ObjectNode exNeg1U() { return objectMsg("user", "Como estas?"); }
-    private ObjectNode exNeg1A() { return objectMsg("assistant", """
-{"intent":"ANSWER","confidence":0.80,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}"""); }
-    private ObjectNode exNeg2U() { return objectMsg("user", "No, no, nada. No te llamé recién."); }
-    private ObjectNode exNeg2A() { return objectMsg("assistant", """
-{"intent":"ANSWER","confidence":0.85,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}"""); }
 
     private static String truncate(String s, int max) {
         if (s == null) return "";
