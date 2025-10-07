@@ -453,6 +453,28 @@ public class NluService {
                 log.info("NLU/route OK intent={} conf={} needsConf={} norm='{}' slots={}",
                         out.intent, out.confidence, out.needs_confirmation, norm, slotsLog);
 
+                if ("SET_ALARM".equalsIgnoreCase(out.intent)) {
+                    boolean faltaHora = (out.slots.hour == null || out.slots.minute == null);
+                    Integer minsRel = parseRelativeMinutes(norm); // detecta "en 10 minutos", "en 2 horas", etc.
+
+                    if (faltaHora && minsRel != null && minsRel > 0) {
+                        java.time.ZoneId zone = safeZone(tz);
+                        java.time.ZonedDateTime tgt = java.time.Instant.ofEpochMilli(nowMs)
+                                .atZone(zone)
+                                .plusMinutes(minsRel)
+                                .withSecond(0).withNano(0);
+
+                        out.slots.hour = tgt.getHour();
+                        out.slots.minute = tgt.getMinute();
+                        out.slots.datetime_iso = tgt.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+                        out.needs_confirmation = false;
+                        if (out.confidence < 0.95) out.confidence = 0.95;
+                        if (out.ack_tts == null || out.ack_tts.isBlank()) {
+                            out.ack_tts = minsRel == 1 ? "Listo, en 1 minuto." : ("Listo, en " + minsRel + " minutos.");
+                        }
+                    }
+                }
+
                 return out;
             }
         } catch (Exception e) {
@@ -668,6 +690,34 @@ public class NluService {
         r.slots = new NluRouteResponse.Slots();
         return r;
     }
+
+    private static Integer parseRelativeMinutes(String norm) {
+        if (norm == null || norm.isBlank()) return null;
+
+        // en X minutos
+        java.util.regex.Matcher mMin = java.util.regex.Pattern
+                .compile("\\ben\\s+(\\d{1,3})\\s+minut(?:o|os)\\b")
+                .matcher(norm);
+        if (mMin.find()) {
+            try { return Math.max(1, Integer.parseInt(mMin.group(1))); } catch (Exception ignore) {}
+        }
+
+        // en X horas
+        java.util.regex.Matcher mHr = java.util.regex.Pattern
+                .compile("\\ben\\s+(\\d{1,2})\\s+hor(?:a|as)\\b")
+                .matcher(norm);
+        if (mHr.find()) {
+            try { return Math.max(1, Integer.parseInt(mHr.group(1)) * 60); } catch (Exception ignore) {}
+        }
+
+        // variantes simples comunes
+        if (norm.contains("media hora")) return 30;
+        if (norm.contains("un minuto") || norm.contains("1 minuto")) return 1;
+        if (norm.contains("una hora") || norm.contains("1 hora")) return 60;
+
+        return null;
+    }
+
 
     // ===== Extractor del Responses API =====
     private String extractOutputText(JsonNode root) {
