@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.*;
 
 @Service
@@ -24,17 +25,14 @@ public class SpotifyService {
         this.tokenStore = tokenStore;
     }
 
-    // ===== OAuth =====
-
     public String buildAuthorizeUrl(String state) {
         String base = "https://accounts.spotify.com/authorize";
         Map<String, String> q = new LinkedHashMap<>();
         q.put("client_id", props.getClientId());
         q.put("response_type", "code");
-        q.put("redirect_uri", props.getRedirectUri()); // DEBE coincidir EXACTO con el del Dashboard
-        q.put("scope", props.getScopes()); // user-modify-playback-state user-read-playback-state user-read-currently-playing
+        q.put("redirect_uri", props.getRedirectUri());
+        q.put("scope", props.getScopes());
         q.put("state", state != null ? state : UUID.randomUUID().toString());
-
         StringBuilder sb = new StringBuilder(base).append('?');
         boolean first = true;
         for (var e : q.entrySet()) {
@@ -53,15 +51,12 @@ public class SpotifyService {
                 .add("code", code)
                 .add("redirect_uri", props.getRedirectUri())
                 .build();
-
         String basic = Credentials.basic(props.getClientId(), props.getClientSecret(), StandardCharsets.UTF_8);
-
         Request req = new Request.Builder()
                 .url("https://accounts.spotify.com/api/token")
                 .addHeader("Authorization", basic)
                 .post(form)
                 .build();
-
         try (Response resp = http.newCall(req).execute()) {
             String body = resp.body() != null ? resp.body().string() : "";
             if (!resp.isSuccessful()) throw new IllegalStateException("Token exchange HTTP " + resp.code() + " body=" + body);
@@ -76,34 +71,27 @@ public class SpotifyService {
         }
     }
 
-    public void logout() {
-        tokenStore.clear();
-    }
+    public void logout() { tokenStore.clear(); }
 
     public void refreshIfNeeded() throws Exception {
         if (!tokenStore.hasTokens()) throw new IllegalStateException("No hay refresh token: primero hacé login con Spotify");
         if (!tokenStore.isAccessTokenExpired()) return;
-
         RequestBody form = new FormBody.Builder()
                 .add("grant_type", "refresh_token")
                 .add("refresh_token", tokenStore.getRefreshToken())
                 .build();
-
         String basic = Credentials.basic(props.getClientId(), props.getClientSecret(), StandardCharsets.UTF_8);
-
         Request req = new Request.Builder()
                 .url("https://accounts.spotify.com/api/token")
                 .addHeader("Authorization", basic)
                 .post(form)
                 .build();
-
         try (Response resp = http.newCall(req).execute()) {
             String body = resp.body() != null ? resp.body().string() : "";
             if (!resp.isSuccessful()) throw new IllegalStateException("Refresh HTTP " + resp.code() + " body=" + body);
             JsonNode json = mapper.readTree(body);
             tokenStore.save(
                     json.path("access_token").asText(null),
-                    // refresh_token puede NO venir; mantenemos el anterior si no llega
                     json.path("refresh_token").asText(null),
                     json.path("expires_in").asInt(3600),
                     json.path("token_type").asText("Bearer"),
@@ -116,15 +104,9 @@ public class SpotifyService {
         refreshIfNeeded();
         String at = tokenStore.getAccessToken();
         if (at == null) throw new IllegalStateException("No access token");
-        return new Request.Builder()
-                .url(url)
-                .addHeader("Authorization", "Bearer " + at)
-                .method(method, body);
+        return new Request.Builder().url(url).addHeader("Authorization", "Bearer " + at).method(method, body);
     }
 
-    // ===== API helpers =====
-
-    /** Perfil actual: útil para saber product (free/premium), id, email, etc. */
     public JsonNode getCurrentUser() throws Exception {
         Request req = authed("https://api.spotify.com/v1/me", "GET", null).build();
         try (Response resp = http.newCall(req).execute()) {
@@ -134,7 +116,6 @@ public class SpotifyService {
         }
     }
 
-    /** Devices del usuario autenticado. */
     public JsonNode listDevices() throws Exception {
         Request req = authed("https://api.spotify.com/v1/me/player/devices", "GET", null).build();
         try (Response resp = http.newCall(req).execute()) {
@@ -144,7 +125,6 @@ public class SpotifyService {
         }
     }
 
-    /** Transfer playback to deviceId (opcional). */
     public void transferPlayback(String deviceId, boolean play) throws Exception {
         String json = mapper.writeValueAsString(Map.of("device_ids", List.of(deviceId), "play", play));
         Request req = authed("https://api.spotify.com/v1/me/player", "PUT",
@@ -157,10 +137,9 @@ public class SpotifyService {
         }
     }
 
-    // ===== Playback simple =====
-
     public void pause() throws Exception {
-        Request req = authed("https://api.spotify.com/v1/me/player/pause", "PUT", RequestBody.create(new byte[0], null)).build();
+        Request req = authed("https://api.spotify.com/v1/me/player/pause", "PUT",
+                RequestBody.create(new byte[0], null)).build();
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful() && resp.code() != 204) {
                 String body = resp.body() != null ? resp.body().string() : "";
@@ -170,7 +149,8 @@ public class SpotifyService {
     }
 
     public void nextTrack() throws Exception {
-        Request req = authed("https://api.spotify.com/v1/me/player/next", "POST", RequestBody.create(new byte[0], null)).build();
+        Request req = authed("https://api.spotify.com/v1/me/player/next", "POST",
+                RequestBody.create(new byte[0], null)).build();
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful() && resp.code() != 204) {
                 String body = resp.body() != null ? resp.body().string() : "";
@@ -180,7 +160,8 @@ public class SpotifyService {
     }
 
     public void previousTrack() throws Exception {
-        Request req = authed("https://api.spotify.com/v1/me/player/previous", "POST", RequestBody.create(new byte[0], null)).build();
+        Request req = authed("https://api.spotify.com/v1/me/player/previous", "POST",
+                RequestBody.create(new byte[0], null)).build();
         try (Response resp = http.newCall(req).execute()) {
             if (!resp.isSuccessful() && resp.code() != 204) {
                 String body = resp.body() != null ? resp.body().string() : "";
@@ -189,7 +170,8 @@ public class SpotifyService {
         }
     }
 
-    // ===== Play por query o por URI =====
+    private record SearchResult(String contextUri, List<String> uris) {}
+    private record Parsed(String track, String artist) {}
 
     public void play(String deviceId, String query, String uriOrContext) throws Exception {
         if (uriOrContext != null && !uriOrContext.isBlank()) {
@@ -199,39 +181,50 @@ public class SpotifyService {
         if (query == null || query.isBlank()) throw new IllegalArgumentException("Falta query o uri");
         SearchResult sr = searchBest(query);
         if (sr == null) throw new IllegalStateException("No encontré resultados para: " + query);
-        startPlayback(deviceId, sr.uri, sr.isTrack ? List.of(sr.uri) : null);
+        startPlayback(deviceId, sr.contextUri(), sr.uris());
     }
 
-    // ======== BÚSQUEDA MEJORADA ========
-
-    private record SearchResult(String uri, boolean isTrack) {}
-    private record Parsed(String track, String artist) {}
-
     private SearchResult searchBest(String rawQuery) throws Exception {
-        Parsed p = parseQuery(rawQuery);
-
-        // 1) Intento exacto: track + artist (con comillas)
-        if (p.artist() != null && !p.artist().isBlank()) {
-            String q1 = "track:\"" + p.track() + "\" artist:\"" + p.artist() + "\"";
-            SearchResult sr = searchTrackExact(q1);
-            if (sr != null) return sr;
-
-            String q2 = "artist:\"" + p.artist() + "\" track:\"" + p.track() + "\"";
-            sr = searchTrackExact(q2);
-            if (sr != null) return sr;
+        String artistFromGeneric = extractArtistFromGenericDe(rawQuery);
+        if (artistFromGeneric != null) {
+            SearchResult top = searchArtistTopTracks(artistFromGeneric, 10);
+            if (top != null) return top;
+            SearchResult ctx = searchArtistExactContext(artistFromGeneric);
+            if (ctx != null) return ctx;
         }
 
-        // 2) Solo track (type=track)
-        SearchResult sr = searchTrackExact("\"" + rawQuery + "\"");
-        if (sr != null) return sr;
+        Parsed p = parseQuery(rawQuery);
+        boolean genericTrackHint = isGenericTrackHint(p.track());
 
-        // 3) Último recurso: cualquier cosa (prefiere track si aparece)
+        if (p.artist() != null && !p.artist().isBlank()) {
+            if (!genericTrackHint && p.track() != null && !p.track().isBlank()) {
+                SearchResult exact = searchTrackExactUris("track:\"" + p.track() + "\" artist:\"" + p.artist() + "\"");
+                if (exact != null) return exact;
+                exact = searchTrackExactUris("artist:\"" + p.artist() + "\" track:\"" + p.track() + "\"");
+                if (exact != null) return exact;
+            }
+            SearchResult top = searchArtistTopTracks(p.artist(), 10);
+            if (top != null) return top;
+            SearchResult ctx = searchArtistExactContext(p.artist());
+            if (ctx != null) return ctx;
+        }
+
+        if (looksLikeArtistOnly(rawQuery)) {
+            SearchResult top = searchArtistTopTracks(rawQuery, 10);
+            if (top != null) return top;
+            SearchResult ctx = searchArtistExactContext(rawQuery);
+            if (ctx != null) return ctx;
+        }
+
+        SearchResult bestTrack = searchTrackBestByPopularity(rawQuery, 15);
+        if (bestTrack != null) return bestTrack;
+
         return searchAny(rawQuery);
     }
 
-    private SearchResult searchTrackExact(String q) throws Exception {
+    private SearchResult searchTrackExactUris(String q) throws Exception {
         String url = "https://api.spotify.com/v1/search?q=" + URLEncoder.encode(q, StandardCharsets.UTF_8)
-                + "&type=track&limit=1&market=from_token";
+                + "&type=track&limit=5&market=from_token";
         Request req = authed(url, "GET", null).build();
         try (Response resp = http.newCall(req).execute()) {
             String body = resp.body() != null ? resp.body().string() : "";
@@ -239,7 +232,122 @@ public class SpotifyService {
             JsonNode items = mapper.readTree(body).path("tracks").path("items");
             if (items.isArray() && items.size() > 0) {
                 String uri = items.get(0).path("uri").asText(null);
-                if (uri != null) return new SearchResult(uri, true);
+                if (uri != null) return new SearchResult(null, List.of(uri));
+            }
+            return null;
+        }
+    }
+
+    private SearchResult searchArtistExactContext(String artistName) throws Exception {
+        String q1 = "artist:\"" + artistName + "\"";
+        String url1 = "https://api.spotify.com/v1/search?q=" + URLEncoder.encode(q1, StandardCharsets.UTF_8)
+                + "&type=artist&limit=3&market=from_token";
+        Request req1 = authed(url1, "GET", null).build();
+        try (Response resp = http.newCall(req1).execute()) {
+            String body = resp.body() != null ? resp.body().string() : "";
+            if (!resp.isSuccessful()) throw new IllegalStateException("search(Artist) HTTP " + resp.code() + " body=" + body);
+            JsonNode items = mapper.readTree(body).path("artists").path("items");
+            if (items.isArray() && items.size() > 0) {
+                String uri = items.get(0).path("uri").asText(null);
+                if (uri != null) return new SearchResult(uri, null);
+            }
+        }
+        String q2 = "\"" + artistName + "\"";
+        String url2 = "https://api.spotify.com/v1/search?q=" + URLEncoder.encode(q2, StandardCharsets.UTF_8)
+                + "&type=artist&limit=3&market=from_token";
+        Request req2 = authed(url2, "GET", null).build();
+        try (Response resp = http.newCall(req2).execute()) {
+            String body = resp.body() != null ? resp.body().string() : "";
+            if (!resp.isSuccessful()) throw new IllegalStateException("search(Artist2) HTTP " + resp.code() + " body=" + body);
+            JsonNode items = mapper.readTree(body).path("artists").path("items");
+            if (items.isArray() && items.size() > 0) {
+                String uri = items.get(0).path("uri").asText(null);
+                if (uri != null) return new SearchResult(uri, null);
+            }
+        }
+        return null;
+    }
+
+    private SearchResult searchArtistTopTracks(String artistName, int limit) throws Exception {
+        String url = "https://api.spotify.com/v1/search?q=" + URLEncoder.encode("artist:\"" + artistName + "\"", StandardCharsets.UTF_8)
+                + "&type=artist&limit=5&market=from_token";
+        Request req = authed(url, "GET", null).build();
+        String artistId = null;
+        try (Response resp = http.newCall(req).execute()) {
+            String body = resp.body() != null ? resp.body().string() : "";
+            if (!resp.isSuccessful()) throw new IllegalStateException("search(ArtistTop) HTTP " + resp.code() + " body=" + body);
+            JsonNode items = mapper.readTree(body).path("artists").path("items");
+            if (items.isArray() && items.size() > 0) {
+                String want = norm(artistName);
+                int bestPop = -1;
+                for (JsonNode it : items) {
+                    String id = it.path("id").asText(null);
+                    String nm = norm(it.path("name").asText(""));
+                    int pop = it.path("popularity").asInt(0);
+                    if (id == null) continue;
+                    if (nm.equals(want)) { artistId = id; break; }
+                    if (pop > bestPop) { bestPop = pop; artistId = id; }
+                }
+            }
+        }
+        if (artistId == null) return null;
+
+        String ttUrl = "https://api.spotify.com/v1/artists/" + artistId + "/top-tracks?market=from_token";
+        Request req2 = authed(ttUrl, "GET", null).build();
+        try (Response resp = http.newCall(req2).execute()) {
+            String body = resp.body() != null ? resp.body().string() : "";
+            if (!resp.isSuccessful()) throw new IllegalStateException("top-tracks HTTP " + resp.code() + " body=" + body);
+            JsonNode tracks = mapper.readTree(body).path("tracks");
+            if (tracks.isArray() && tracks.size() > 0) {
+                List<String> uris = new ArrayList<>();
+                int n = Math.min(tracks.size(), Math.max(1, limit));
+                for (int i = 0; i < n; i++) {
+                    String uri = tracks.get(i).path("uri").asText(null);
+                    if (uri != null) uris.add(uri);
+                }
+                if (!uris.isEmpty()) return new SearchResult(null, uris);
+            }
+        }
+        return null;
+    }
+
+    private SearchResult searchTrackBestByPopularity(String rawQuery, int limit) throws Exception {
+        String url = "https://api.spotify.com/v1/search?q=" + URLEncoder.encode(rawQuery, StandardCharsets.UTF_8)
+                + "&type=track&limit=" + Math.max(5, limit) + "&market=from_token";
+        Request req = authed(url, "GET", null).build();
+        try (Response resp = http.newCall(req).execute()) {
+            String body = resp.body() != null ? resp.body().string() : "";
+            if (!resp.isSuccessful()) throw new IllegalStateException("search(TrackPop) HTTP " + resp.code() + " body=" + body);
+            JsonNode items = mapper.readTree(body).path("tracks").path("items");
+            if (!items.isArray() || items.size() == 0) return null;
+
+            String want = cleanTitle(rawQuery);
+            int bestIdx = -1, bestPop = -1;
+
+            for (int i = 0; i < items.size(); i++) {
+                JsonNode it = items.get(i);
+                String name = cleanTitle(it.path("name").asText(""));
+                int pop = it.path("popularity").asInt(0);
+                if (name.equals(want) && pop > bestPop) { bestPop = pop; bestIdx = i; }
+            }
+            if (bestIdx < 0) {
+                for (int i = 0; i < items.size(); i++) {
+                    JsonNode it = items.get(i);
+                    String name = cleanTitle(it.path("name").asText(""));
+                    int pop = it.path("popularity").asInt(0);
+                    if ((name.startsWith(want) || name.contains(want)) && pop > bestPop) { bestPop = pop; bestIdx = i; }
+                }
+            }
+            if (bestIdx < 0) {
+                for (int i = 0; i < items.size(); i++) {
+                    int pop = items.get(i).path("popularity").asInt(0);
+                    if (pop > bestPop) { bestPop = pop; bestIdx = i; }
+                }
+            }
+
+            if (bestIdx >= 0) {
+                String uri = items.get(bestIdx).path("uri").asText(null);
+                if (uri != null) return new SearchResult(null, List.of(uri));
             }
             return null;
         }
@@ -257,37 +365,34 @@ public class SpotifyService {
             JsonNode tracks = j.path("tracks").path("items");
             if (tracks.isArray() && tracks.size() > 0) {
                 String uri = tracks.get(0).path("uri").asText(null);
-                if (uri != null) return new SearchResult(uri, true);
+                if (uri != null) return new SearchResult(null, List.of(uri));
             }
             JsonNode playlists = j.path("playlists").path("items");
             if (playlists.isArray() && playlists.size() > 0) {
                 String uri = playlists.get(0).path("uri").asText(null);
-                if (uri != null) return new SearchResult(uri, false);
+                if (uri != null) return new SearchResult(uri, null);
             }
             JsonNode albums = j.path("albums").path("items");
             if (albums.isArray() && albums.size() > 0) {
                 String uri = albums.get(0).path("uri").asText(null);
-                if (uri != null) return new SearchResult(uri, false);
+                if (uri != null) return new SearchResult(uri, null);
             }
             JsonNode artists = j.path("artists").path("items");
             if (artists.isArray() && artists.size() > 0) {
                 String uri = artists.get(0).path("uri").asText(null);
-                if (uri != null) return new SearchResult(uri, false);
+                if (uri != null) return new SearchResult(uri, null);
             }
             return null;
         }
     }
 
-    /** "mi todo de hillsong" → track="mi todo", artist="hillsong" */
     private Parsed parseQuery(String raw) {
         if (raw == null) return new Parsed("", null);
         String s = raw.trim();
         String sl = s.toLowerCase(Locale.ROOT);
-
-        // separadores comunes entre tema y artista
         String[] seps = {" - ", " – ", " — ", " de ", " by ", " del "};
         for (String sep : seps) {
-            int idx = sl.indexOf(sep.trim());
+            int idx = sl.lastIndexOf(sep);
             if (idx > 0) {
                 String left = s.substring(0, idx).trim();
                 String right = s.substring(idx + sep.length()).trim();
@@ -297,23 +402,18 @@ public class SpotifyService {
         return new Parsed(s, null);
     }
 
-    // ===== Reproducción =====
-
     private void startPlayback(String deviceId, String contextUriOrTrackUri, List<String> urisIfTrack) throws Exception {
         var payload = new LinkedHashMap<String, Object>();
         if (urisIfTrack != null && !urisIfTrack.isEmpty()) {
-            payload.put("uris", urisIfTrack); // reproducir pista(s) exacta(s)
+            payload.put("uris", urisIfTrack);
         } else {
-            payload.put("context_uri", contextUriOrTrackUri); // playlist/album/artist
+            payload.put("context_uri", contextUriOrTrackUri);
         }
         String json = mapper.writeValueAsString(payload);
 
         HttpUrl.Builder url = Objects.requireNonNull(HttpUrl.parse("https://api.spotify.com/v1/me/player/play")).newBuilder();
-        if (deviceId != null && !deviceId.isBlank()) {
-            url.addQueryParameter("device_id", deviceId);
-        }
+        if (deviceId != null && !deviceId.isBlank()) url.addQueryParameter("device_id", deviceId);
 
-        // intento 1
         Request req = authed(url.build().toString(), "PUT",
                 RequestBody.create(json, MediaType.get("application/json"))).build();
 
@@ -323,24 +423,17 @@ public class SpotifyService {
             String body = resp.body() != null ? resp.body().string() : "";
             int code = resp.code();
 
-            if (isPremiumRequired(code, body)) {
-                throw new IllegalStateException("PREMIUM_REQUIRED: Premium requerido por Spotify (HTTP " + code + ").");
-            }
+            if (isPremiumRequired(code, body)) throw new IllegalStateException("PREMIUM_REQUIRED: Premium requerido por Spotify (HTTP " + code + ").");
 
             if (isNoActiveDevice(code, body)) {
                 String candidate = deviceId;
-                if (candidate == null || candidate.isBlank()) {
-                    candidate = pickBestDeviceId();
-                }
-                if (candidate == null || candidate.isBlank()) {
+                if (candidate == null || candidate.isBlank()) candidate = pickBestDeviceId();
+                if (candidate == null || candidate.isBlank())
                     throw new IllegalStateException("NO_DEVICE: No hay un dispositivo de Spotify disponible. Abrí Spotify en el teléfono/PC y reproducí algo una vez.");
-                }
                 transferPlayback(candidate, true);
 
                 HttpUrl retryUrl = Objects.requireNonNull(HttpUrl.parse("https://api.spotify.com/v1/me/player/play"))
-                        .newBuilder()
-                        .addQueryParameter("device_id", candidate)
-                        .build();
+                        .newBuilder().addQueryParameter("device_id", candidate).build();
 
                 Request retry = authed(retryUrl.toString(), "PUT",
                         RequestBody.create(json, MediaType.get("application/json"))).build();
@@ -369,31 +462,22 @@ public class SpotifyService {
     private boolean isPremiumRequired(int code, String body) {
         if (code == 403) {
             String b = body == null ? "" : body.toLowerCase(Locale.ROOT);
-            // Mensajes típicos: "Premium required", "Player command failed: Premium required"
             return b.contains("premium required");
         }
         return false;
     }
 
-    /** Devuelve el mejor device disponible: primero activo; si no, el primero no restringido. */
     private String pickBestDeviceId() throws Exception {
         JsonNode devices = listDevices();
         JsonNode arr = devices.path("devices");
         if (!arr.isArray() || arr.size() == 0) return null;
-
-        for (JsonNode d : arr) {
-            if (d.path("is_active").asBoolean(false)) return d.path("id").asText(null);
-        }
-        for (JsonNode d : arr) {
-            if (!d.path("is_restricted").asBoolean(false)) {
-                String id = d.path("id").asText(null);
-                if (id != null && !id.isBlank()) return id;
-            }
+        for (JsonNode d : arr) if (d.path("is_active").asBoolean(false)) return d.path("id").asText(null);
+        for (JsonNode d : arr) if (!d.path("is_restricted").asBoolean(false)) {
+            String id = d.path("id").asText(null);
+            if (id != null && !id.isBlank()) return id;
         }
         return arr.get(0).path("id").asText(null);
     }
-
-    // ====== STATUS (para diagnóstico) ======
 
     public Map<String, Object> getStatus() {
         Map<String, Object> out = new LinkedHashMap<>();
@@ -401,12 +485,10 @@ public class SpotifyService {
         out.put("connected", connected);
         out.put("redirectUri", props.getRedirectUri());
         out.put("clientId", props.getClientId());
-
         if (!connected) {
             out.put("loginUrl", buildAuthorizeUrl(UUID.randomUUID().toString()));
             return out;
         }
-
         try {
             JsonNode me = getCurrentUser();
             String product = me.path("product").asText("");
@@ -415,7 +497,7 @@ public class SpotifyService {
             Map<String, Object> user = new LinkedHashMap<>();
             user.put("id", me.path("id").asText(null));
             user.put("display_name", me.path("display_name").asText(null));
-            user.put("email", me.path("email").asText(null)); // puede venir null si tu app no pide user-read-email
+            user.put("email", me.path("email").asText(null));
             user.put("product", product);
             user.put("country", me.path("country").asText(null));
 
@@ -437,16 +519,10 @@ public class SpotifyService {
                     di.put("is_restricted", d.path("is_restricted").asBoolean(false));
                     dlist.add(di);
                 }
-                // sugerido
                 for (JsonNode d : devices) {
-                    if (d.path("is_active").asBoolean(false)) {
-                        suggested = d.path("id").asText(null);
-                        break;
-                    }
+                    if (d.path("is_active").asBoolean(false)) { suggested = d.path("id").asText(null); break; }
                 }
-                if (suggested == null && devices.size() > 0) {
-                    suggested = devices.get(0).path("id").asText(null);
-                }
+                if (suggested == null && devices.size() > 0) suggested = devices.get(0).path("id").asText(null);
             }
             out.put("devices", dlist);
             out.put("suggestedDeviceId", suggested);
@@ -454,5 +530,67 @@ public class SpotifyService {
             out.put("error", "status_failed: " + e.getMessage());
         }
         return out;
+    }
+
+    private static String norm(String s) {
+        if (s == null) return "";
+        String noAcc = Normalizer.normalize(s, Normalizer.Form.NFD).replaceAll("\\p{M}", "");
+        return noAcc.toLowerCase(Locale.ROOT).replaceAll("[“”\"']", "").replaceAll("\\s+", " ").trim();
+    }
+
+    private static boolean isGenericTrackHint(String s) {
+        if (s == null || s.isBlank()) return true;
+        String x = norm(s);
+        x = x.replaceAll("^(pone|poneme|pones|poner|ponemos|ponele|reproduc[ei]r?|reproduce|reproduci|toca|tocame|pasa|pasame)\\s+", "");
+        x = x.replaceAll("^(un|una|alguna|algun|alguno|algunos|algunas|algo|la|el)\\s+", "");
+        if (x.isEmpty()) return true;
+        String[] toks = x.split("\\s+");
+        for (String t : toks) {
+            if (!(t.equals("tema") || t.equals("temita") || t.equals("cancion") || t.equals("canción") || t.equals("musica") || t.equals("música"))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String cleanTitle(String s) {
+        if (s == null) return "";
+        s = s.replaceAll("\\s*\\([^)]*\\)\\s*", " ");
+        s = s.replaceAll("\\s*\\[[^]]*\\]\\s*", " ");
+        s = s.replaceAll("\\s*-\\s*.+$", " ");
+        s = s.replaceAll("\\s+", " ").trim();
+        return norm(s);
+    }
+
+    private static String stripVerbsAndDet(String x) {
+        if (x == null) return "";
+        String s = x;
+        s = s.replaceAll("^(pone|poneme|pones|poner|ponemos|reproduce|reproduc[ei]r?|reproduci|toca|tocame|pasa|pasame)\\s+", "");
+        s = s.replaceAll("^(un|una|alguna|algun|alguno|algunos|algunas|algo|la|el)\\s+", "");
+        return s.trim();
+    }
+
+    private static boolean looksLikeArtistOnly(String raw) {
+        String x = stripVerbsAndDet(norm(raw));
+        if (x.isEmpty()) return false;
+        if (x.contains(" de ") || x.contains(" by ") || x.contains(" del ")) return false;
+        if (x.contains(" tema ") || x.contains(" temita ") || x.contains(" cancion ") || x.contains(" canción ") ||
+                x.contains(" musica ") || x.equals("musica") || x.equals("música")) return false;
+        return x.split("\\s+").length <= 5;
+    }
+
+    private static String extractArtistFromGenericDe(String raw) {
+        String n = norm(raw);
+        int idx = n.lastIndexOf(" de ");
+        if (idx <= 0) return null;
+        String left = n.substring(0, idx).trim();
+        String right = raw.substring(Math.min(raw.length(), idx + 4)).trim();
+        left = left.replaceAll("^(pone|poneme|pones|poner|ponemos|reproduce|reproduci|toca|tocame|pasa|pasame)\\s+", "");
+        left = left.replaceAll("^(un|una|alguna|algun|alguno|algunos|algunas|algo|la|el)\\s+", "");
+        if (left.isEmpty()
+                || left.matches("^(tema|temita|cancion|canción|musica|música)(\\s+.*)?$")) {
+            return right;
+        }
+        return null;
     }
 }
