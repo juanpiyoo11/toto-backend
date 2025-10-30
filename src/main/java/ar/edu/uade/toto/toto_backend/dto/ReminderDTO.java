@@ -45,8 +45,7 @@ public class ReminderDTO {
                 reminder.getRepeatPattern(),
                 reminder.getActive(),
                 reminder.getCreatedAt(),
-                reminder.getUpdatedAt()
-        );
+                reminder.getUpdatedAt());
     }
 
     public Reminder toEntity() {

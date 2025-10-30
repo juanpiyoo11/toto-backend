@@ -33,8 +33,7 @@ public class HistoryEventDTO {
                 event.getUserId(),
                 event.getEventType(),
                 event.getDetails(),
-                event.getTimestamp()
-        );
+                event.getTimestamp());
     }
 
     public HistoryEvent toEntity() {

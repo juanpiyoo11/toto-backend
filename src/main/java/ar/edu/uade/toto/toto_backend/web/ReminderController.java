@@ -19,8 +19,7 @@ public class ReminderController {
     @GetMapping
     public ResponseEntity<List<ReminderDTO>> getRemindersByElderlyId(
             @RequestParam Long elderlyId,
-            @RequestParam(required = false, defaultValue = "false") Boolean activeOnly
-    ) {
+            @RequestParam(required = false, defaultValue = "false") Boolean activeOnly) {
         if (activeOnly) {
             return ResponseEntity.ok(reminderService.getActiveRemindersByElderlyId(elderlyId));
         }

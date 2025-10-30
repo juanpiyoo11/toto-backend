@@ -33,8 +33,7 @@ public class AuthService {
     @Transactional
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -71,8 +70,7 @@ public class AuthService {
         user = userRepository.save(user);
 
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
         String accessToken = tokenProvider.generateAccessToken(authentication);
         String refreshToken = tokenProvider.generateRefreshToken(user.getId());
@@ -94,8 +92,7 @@ public class AuthService {
 
         UserPrincipal userPrincipal = UserPrincipal.create(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userPrincipal, null, userPrincipal.getAuthorities()
-        );
+                userPrincipal, null, userPrincipal.getAuthorities());
 
         String newAccessToken = tokenProvider.generateAccessToken(authentication);
         String newRefreshToken = tokenProvider.generateRefreshToken(userId);

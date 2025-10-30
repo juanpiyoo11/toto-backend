@@ -22,8 +22,7 @@ public class HistoryController {
     public ResponseEntity<List<HistoryEventDTO>> getHistoryByUserId(
             @RequestParam Long userId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end
-    ) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         if (start != null && end != null) {
             return ResponseEntity.ok(historyService.getHistoryByUserIdAndDateRange(userId, start, end));
         }

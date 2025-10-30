@@ -37,8 +37,7 @@ public class ContactDTO {
                 contact.getRelationship(),
                 contact.getPhone(),
                 contact.getCreatedAt(),
-                contact.getUpdatedAt()
-        );
+                contact.getUpdatedAt());
     }
 
     public Contact toEntity() {

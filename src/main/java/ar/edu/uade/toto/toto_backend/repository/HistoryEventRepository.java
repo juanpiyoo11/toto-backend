@@ -10,5 +10,7 @@ import java.util.List;
 @Repository
 public interface HistoryEventRepository extends JpaRepository<HistoryEvent, Long> {
     List<HistoryEvent> findByUserIdOrderByTimestampDesc(Long userId);
-    List<HistoryEvent> findByUserIdAndTimestampBetweenOrderByTimestampDesc(Long userId, LocalDateTime start, LocalDateTime end);
+
+    List<HistoryEvent> findByUserIdAndTimestampBetweenOrderByTimestampDesc(Long userId, LocalDateTime start,
+            LocalDateTime end);
 }
