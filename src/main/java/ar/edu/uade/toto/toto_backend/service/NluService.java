@@ -74,6 +74,7 @@ public class NluService {
                             "CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, " +
                             "SPOTIFY_PLAY, SPOTIFY_PAUSE, SPOTIFY_RESUME, SPOTIFY_NEXT, SPOTIFY_PREV, " +
                             "SPOTIFY_SET_VOLUME, SPOTIFY_SET_SHUFFLE, SPOTIFY_SET_REPEAT, " +
+                            "FALL, " +    // <-- NUEVO
                             "ANSWER, CANCEL, UNKNOWN.\n" +
                             "\n" +
                             "Reglas de llamada:\n" +
@@ -100,6 +101,10 @@ public class NluService {
                             "- Shuffle: \"activá/sacá el aleatorio\" → SPOTIFY_SET_SHUFFLE con slots.message_text=\"on\"/\"off\".\n" +
                             "- Repeat: \"repetir tema\" → SPOTIFY_SET_REPEAT con slots.message_text=\"track\"; \"repetir lista\" → \"context\"; \"sacar repeat\" → \"off\".\n" +
                             "\n" +
+                            "FALL:\n" +
+                            "- Detección semántica de caída/lesión: \"me caí\", \"me pegué\", \"me duele la cadera\", \"no me puedo levantar\" → FALL.\n" +
+                            "- Evitar condicional/hipotéticos: \"si me caigo\", \"cuando me caiga\" → NO FALL.\n" +
+                            "\n" +
                             "Locale: " + locale + " | TZ: " + tz + " | now_epoch_ms: " + nowMs + "\n" +
                             "Para QUERY_TIME/QUERY_DATE NO generes ack_tts (el cliente habla la respuesta).";
 
@@ -124,12 +129,10 @@ public class NluService {
             ObjectNode ex6A = objectMsg("assistant", """
 {"intent":"SET_ALARM","confidence":0.97,"needs_confirmation":false,"slots":{"hour":5,"minute":0},"ack_tts":"Listo, programo la alarma.","clarifying_question":null,"safety_notes":null}""");
 
-            // llamadas variantes
             ObjectNode exCall1U = objectMsg("user", "llamalo a Kevin");
             ObjectNode exCall1A = objectMsg("assistant", """
 {"intent":"CALL","confidence":0.98,"needs_confirmation":false,"slots":{"contact_query":"kevin"},"ack_tts":"Llamando a Kevin.","clarifying_question":null,"safety_notes":null}""");
 
-            // mensajes
             ObjectNode exMsg1U = objectMsg("user", "Mandale a Kevin que llego en 10");
             ObjectNode exMsg1A = objectMsg("assistant", """
 {"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
@@ -140,14 +143,12 @@ public class NluService {
 {"intent":"SEND_MESSAGE","confidence":0.95,"needs_confirmation":true,
  "slots":{"contact_query":"sofi","message_text":null},
  "ack_tts":null,"clarifying_question":"¿Qué querés que le diga a Sofi?","safety_notes":null}""");
-            // NUEVO: infinitivo "decirle"
             ObjectNode exMsg3U = objectMsg("user", "Decirle a Flor que la amo mucho");
             ObjectNode exMsg3A = objectMsg("assistant", """
 {"intent":"SEND_MESSAGE","confidence":0.98,"needs_confirmation":false,
  "slots":{"contact_query":"flor","message_text":"la amo mucho"},
  "ack_tts":"Listo, lo mando a Flor.","clarifying_question":null,"safety_notes":null}""");
 
-            // Negativos semánticos: NO QUERY_TIME para “a qué hora ...”
             ObjectNode exNegTimeSem1U = objectMsg("user", "Decime la hora en la que me recomendás cepillarme los dientes.");
             ObjectNode exNegTimeSem1A = objectMsg("assistant", """
 {"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
@@ -158,74 +159,76 @@ public class NluService {
 {"intent":"SPOTIFY_PLAY","confidence":0.97,"needs_confirmation":false,
  "slots":{"message_text":"soda stereo"},
  "ack_tts":"Reproduciendo Soda Stereo en Spotify.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp2U = objectMsg("user", "Reproducí De música ligera");
             ObjectNode sp2A = objectMsg("assistant", """
 {"intent":"SPOTIFY_PLAY","confidence":0.97,"needs_confirmation":false,
  "slots":{"message_text":"de musica ligera"},
  "ack_tts":"Voy con De música ligera.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp3U = objectMsg("user", "Poné música");
             ObjectNode sp3A = objectMsg("assistant", """
 {"intent":"SPOTIFY_PLAY","confidence":0.90,"needs_confirmation":true,
  "slots":{"message_text":null},
  "ack_tts":null,"clarifying_question":"¿Qué querés escuchar?","safety_notes":null}""");
-
             ObjectNode sp4U = objectMsg("user", "Poné pausa");
             ObjectNode sp4A = objectMsg("assistant", """
 {"intent":"SPOTIFY_PAUSE","confidence":0.99,"needs_confirmation":false,
  "slots":{},"ack_tts":"Pauso la música.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp5U = objectMsg("user", "Seguí la música");
             ObjectNode sp5A = objectMsg("assistant", """
 {"intent":"SPOTIFY_RESUME","confidence":0.99,"needs_confirmation":false,
  "slots":{},"ack_tts":"Sigo reproduciendo.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp6U = objectMsg("user", "Pasá al siguiente");
             ObjectNode sp6A = objectMsg("assistant", """
 {"intent":"SPOTIFY_NEXT","confidence":0.99,"needs_confirmation":false,
  "slots":{},"ack_tts":"Siguiente tema.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp7U = objectMsg("user", "Volvé al anterior");
             ObjectNode sp7A = objectMsg("assistant", """
 {"intent":"SPOTIFY_PREV","confidence":0.99,"needs_confirmation":false,
  "slots":{},"ack_tts":"Tema anterior.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp8U = objectMsg("user", "Volumen al 40 por ciento");
             ObjectNode sp8A = objectMsg("assistant", """
 {"intent":"SPOTIFY_SET_VOLUME","confidence":0.98,"needs_confirmation":false,
  "slots":{"message_text":"40"},
  "ack_tts":"Volumen en 40%.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp9U = objectMsg("user", "Subí el volumen");
             ObjectNode sp9A = objectMsg("assistant", """
 {"intent":"SPOTIFY_SET_VOLUME","confidence":0.95,"needs_confirmation":false,
  "slots":{"message_text":"up"},
  "ack_tts":"Subo el volumen.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp10U = objectMsg("user", "Activá el modo aleatorio");
             ObjectNode sp10A = objectMsg("assistant", """
 {"intent":"SPOTIFY_SET_SHUFFLE","confidence":0.97,"needs_confirmation":false,
  "slots":{"message_text":"on"},
  "ack_tts":"Activo aleatorio.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp11U = objectMsg("user", "Sacá el aleatorio");
             ObjectNode sp11A = objectMsg("assistant", """
 {"intent":"SPOTIFY_SET_SHUFFLE","confidence":0.97,"needs_confirmation":false,
  "slots":{"message_text":"off"},
  "ack_tts":"Desactivo aleatorio.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp12U = objectMsg("user", "Repetir tema");
             ObjectNode sp12A = objectMsg("assistant", """
 {"intent":"SPOTIFY_SET_REPEAT","confidence":0.97,"needs_confirmation":false,
  "slots":{"message_text":"track"},
  "ack_tts":"Repito el tema.","clarifying_question":null,"safety_notes":null}""");
-
             ObjectNode sp13U = objectMsg("user", "Sacar repeat");
             ObjectNode sp13A = objectMsg("assistant", """
 {"intent":"SPOTIFY_SET_REPEAT","confidence":0.97,"needs_confirmation":false,
  "slots":{"message_text":"off"},
  "ack_tts":"Desactivo repetir.","clarifying_question":null,"safety_notes":null}""");
+
+            // ===== Few-shots FALL =====
+            ObjectNode fall1U = objectMsg("user", "me caí");
+            ObjectNode fall1A = objectMsg("assistant", """
+{"intent":"FALL","confidence":0.99,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"possible fall"}""");
+            ObjectNode fall2U = objectMsg("user", "me pegué fuerte y me duele la cadera");
+            ObjectNode fall2A = objectMsg("assistant", """
+{"intent":"FALL","confidence":0.97,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"possible fall"}""");
+            ObjectNode fall3U = objectMsg("user", "me tropecé y me caí al piso");
+            ObjectNode fall3A = objectMsg("assistant", """
+{"intent":"FALL","confidence":0.97,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"possible fall"}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -253,6 +256,7 @@ public class NluService {
                     .add("SPOTIFY_PLAY").add("SPOTIFY_PAUSE").add("SPOTIFY_RESUME")
                     .add("SPOTIFY_NEXT").add("SPOTIFY_PREV")
                     .add("SPOTIFY_SET_VOLUME").add("SPOTIFY_SET_SHUFFLE").add("SPOTIFY_SET_REPEAT")
+                    .add("FALL")                 // <-- NUEVO
                     .add("ANSWER").add("CANCEL").add("UNKNOWN");
 
             props.putObject("confidence").put("type","number").put("minimum",0.0).put("maximum",1.0);
@@ -340,6 +344,11 @@ public class NluService {
             input.add(sp12U); input.add(sp12A);
             input.add(sp13U); input.add(sp13A);
 
+            // FALL shots
+            input.add(fall1U); input.add(fall1A);
+            input.add(fall2U); input.add(fall2A);
+            input.add(fall3U); input.add(fall3A);
+
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
 
@@ -368,6 +377,7 @@ public class NluService {
                         NluRouteResponse guard = guardrailTimeOrDate(norm);
                         if (guard == null) guard = guardrailCall(norm);
                         if (guard == null) guard = guardrailSendMessage(norm);
+                        if (guard == null) guard = guardrailFall(norm);  // <-- NUEVO
                         if (guard != null) return guard;
                     }
                     return fallback("ANSWER", "No estoy seguro, ¿podés repetir?");
@@ -381,6 +391,7 @@ public class NluService {
                         NluRouteResponse guard = guardrailTimeOrDate(norm);
                         if (guard == null) guard = guardrailCall(norm);
                         if (guard == null) guard = guardrailSendMessage(norm);
+                        if (guard == null) guard = guardrailFall(norm);  // <-- NUEVO
                         if (guard != null) return guard;
                     }
                     log.warn("NLU/route sin output. text='{}'", text);
@@ -407,14 +418,12 @@ public class NluService {
                     boolean hasText = out.slots.message_text != null && !out.slots.message_text.isBlank();
 
                     if (hasWho && hasText) {
-                        // ✅ todo completo → sin repregunta (aunque el modelo haya puesto needs_confirmation=true)
                         out.needs_confirmation = false;
                         if (out.ack_tts == null || out.ack_tts.isBlank())
                             out.ack_tts = "Listo, lo mando.";
                         if (out.confidence < 0.95) out.confidence = 0.95;
                         out.clarifying_question = null;
                     } else {
-                        // Falta algo → una sola repregunta clara
                         out.needs_confirmation = true;
                         out.ack_tts = null;
                         out.clarifying_question = hasWho
@@ -424,12 +433,20 @@ public class NluService {
                     }
                 }
 
+                // ===== Post-model: FALL =====
+                if ("FALL".equalsIgnoreCase(out.intent)) {
+                    out.needs_confirmation = false;
+                    out.ack_tts = null; // el cliente dispara el flujo de caídas
+                    if (out.confidence < 0.90) out.confidence = 0.90;
+                }
+
                 // Guardrails post-model deshabilitados por defecto
                 if (USE_GUARDRAILS_AFTER_MODEL &&
                         ("ANSWER".equalsIgnoreCase(out.intent) || "UNKNOWN".equalsIgnoreCase(out.intent))) {
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
                     if (guard == null) guard = guardrailCall(norm);
                     if (guard == null) guard = guardrailSendMessage(norm);
+                    if (guard == null) guard = guardrailFall(norm);
                     if (guard != null) out = guard;
                 }
 
@@ -484,6 +501,7 @@ public class NluService {
                 NluRouteResponse guard = guardrailTimeOrDate(norm);
                 if (guard == null) guard = guardrailCall(norm);
                 if (guard == null) guard = guardrailSendMessage(norm);
+                if (guard == null) guard = guardrailFall(norm);
                 if (guard != null) return guard;
             }
             return fallback("ANSWER","Perdón, tuve un problema procesando eso.");
@@ -553,6 +571,26 @@ public class NluService {
             r.ack_tts = "Listo, lo mando.";
         }
         return r;
+    }
+
+    private static NluRouteResponse guardrailFall(String norm) {
+        if (norm == null || norm.isBlank()) return null;
+
+        boolean saidFall = norm.matches(".*\\b(me cai|me ca[ií]do|me tropec[eé]|me desmaye|me pegue|me golpee)\\b.*");
+        boolean pain     = norm.matches(".*\\b(me duele|me lastime|me fracture|me rompi|me torci|no puedo levantarme)\\b.*");
+        boolean hypothetical = norm.matches(".*\\b(si|cuando)\\s+me\\s+(caigo|caiga|llego a caer)\\b.*");
+
+        if (!hypothetical && (saidFall || pain)) {
+            NluRouteResponse r = new NluRouteResponse();
+            r.intent = "FALL";
+            r.confidence = 0.96;
+            r.needs_confirmation = false;
+            r.ack_tts = null;
+            r.safety_notes = "possible fall";
+            r.slots = new NluRouteResponse.Slots();
+            return r;
+        }
+        return null;
     }
 
     private static final class MsgParts { final String who, text; MsgParts(String w, String t){who=w;text=t;} }
