@@ -49,7 +49,7 @@ public class DevController {
 
         // Seed the database
         Map<String, Object> result = bootstrapService.seedDatabase();
-        
+
         if ("skipped".equals(result.get("status"))) {
             return ResponseEntity.ok(result);
         }

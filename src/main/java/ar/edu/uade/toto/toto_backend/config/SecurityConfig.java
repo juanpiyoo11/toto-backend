@@ -68,8 +68,7 @@ public class SecurityConfig {
                         .requestMatchers("/health", "/time").permitAll()
                         .requestMatchers("/dev/**").permitAll()
                         // All other endpoints require authentication
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 

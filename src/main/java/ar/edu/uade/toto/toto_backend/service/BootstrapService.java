@@ -55,7 +55,7 @@ public class BootstrapService {
     @Transactional
     public Map<String, Object> seedDatabase() {
         Map<String, Object> result = new HashMap<>();
-        
+
         // Check if database already has data
         long userCount = userRepository.count();
         if (userCount > 0) {
