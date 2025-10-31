@@ -74,7 +74,7 @@ public class NluService {
                             "CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, " +
                             "SPOTIFY_PLAY, SPOTIFY_PAUSE, SPOTIFY_RESUME, SPOTIFY_NEXT, SPOTIFY_PREV, " +
                             "SPOTIFY_SET_VOLUME, SPOTIFY_SET_SHUFFLE, SPOTIFY_SET_REPEAT, " +
-                            "FALL, " +    // <-- NUEVO
+                            "FALL, " +
                             "ANSWER, CANCEL, UNKNOWN.\n" +
                             "\n" +
                             "Reglas de llamada:\n" +
@@ -312,6 +312,8 @@ public class NluService {
             ObjectNode root = mapper.createObjectNode();
             root.put("model", model);
             root.put("temperature", 0.0);
+            root.put("stream", true);
+            root.put("max_tokens", 80);
 
             ArrayNode input = root.putArray("input");
             input.add(objectMsg("system", systemPrompt));

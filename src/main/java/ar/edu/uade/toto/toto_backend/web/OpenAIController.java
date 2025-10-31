@@ -1,15 +1,20 @@
 package ar.edu.uade.toto.toto_backend.web;
 
+import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.Map;
+
 import ar.edu.uade.toto.toto_backend.dto.AskRequest;
 import ar.edu.uade.toto.toto_backend.dto.AskResponse;
 import ar.edu.uade.toto.toto_backend.service.OpenAIPromptService;
 import ar.edu.uade.toto.toto_backend.service.OpenAISTTService;
-import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
-
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -27,19 +32,11 @@ public class OpenAIController {
     public AskResponse ask(@RequestBody AskRequest body) {
         String prompt = (body != null && body.prompt != null) ? body.prompt : "";
         try {
-            String reply = prompts.ask(prompt);   // delega en el service
+            String reply = prompts.ask(prompt);
             return new AskResponse(reply);
         } catch (Exception e) {
             return new AskResponse("ERROR: " + e.getMessage());
         }
-    }
-
-    @PostMapping(value = "/ask/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public SseEmitter askStream(@RequestBody AskRequest body) {
-        String prompt = (body != null && body.prompt != null) ? body.prompt : "";
-        SseEmitter emitter = new SseEmitter(0L);  // sin timeout
-        prompts.askStream(emitter, prompt);       // el service escribe en el emitter (SSE)
-        return emitter;
     }
 
     @PostMapping(value = "/stt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
