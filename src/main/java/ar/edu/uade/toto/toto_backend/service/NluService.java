@@ -319,7 +319,7 @@ public class NluService {
             root.put("model", model);
             root.put("temperature", 0.0);
             root.put("stream", true);
-            root.put("max_tokens", 80);
+            root.put("max_output_tokens", 80);
 
             ArrayNode input = root.putArray("input");
             input.add(objectMsg("system", systemPrompt));
