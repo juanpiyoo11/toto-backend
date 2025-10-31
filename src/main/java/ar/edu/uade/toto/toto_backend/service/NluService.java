@@ -1,12 +1,10 @@
 package ar.edu.uade.toto.toto_backend.service;
 
-import ar.edu.uade.toto.toto_backend.dto.NluRouteRequest;
-import ar.edu.uade.toto.toto_backend.dto.NluRouteResponse;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import okhttp3.*;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -17,6 +15,14 @@ import java.text.Normalizer;
 import java.time.ZoneId;
 import java.util.Locale;
 import java.util.Objects;
+
+import ar.edu.uade.toto.toto_backend.dto.NluRouteRequest;
+import ar.edu.uade.toto.toto_backend.dto.NluRouteResponse;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 @Service
 public class NluService {
@@ -74,7 +80,7 @@ public class NluService {
                             "CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, " +
                             "SPOTIFY_PLAY, SPOTIFY_PAUSE, SPOTIFY_RESUME, SPOTIFY_NEXT, SPOTIFY_PREV, " +
                             "SPOTIFY_SET_VOLUME, SPOTIFY_SET_SHUFFLE, SPOTIFY_SET_REPEAT, " +
-                            "FALL, " +    // <-- NUEVO
+                            "FALL, " +
                             "ANSWER, CANCEL, UNKNOWN.\n" +
                             "\n" +
                             "Reglas de llamada:\n" +
@@ -308,10 +314,10 @@ public class NluService {
             rootReq.add("ack_tts");
             rootReq.add("safety_notes");
 
-            // ===== Payload Responses API =====
             ObjectNode root = mapper.createObjectNode();
             root.put("model", model);
             root.put("temperature", 0.0);
+            root.put("max_output_tokens", 80);
 
             ArrayNode input = root.putArray("input");
             input.add(objectMsg("system", systemPrompt));
