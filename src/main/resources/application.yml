@@ -44,9 +44,9 @@ jwt:
 # Database Configuration
 spring:
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/toto}
-    username: ${DATABASE_USERNAME:toto}
-    password: ${DATABASE_PASSWORD:toto123}
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
     driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
