@@ -58,8 +58,7 @@ public class OpenAIPromptService {
         ObjectNode root = mapper.createObjectNode();
         root.put("model", model);
         root.put("temperature", 0.7);
-        root.put("stream", false);
-        root.put("max_output_tokens", 80);
+        root.put("stream", true);
         root.set("input", buildInput(prompt));
 
         Request request = new Request.Builder()
