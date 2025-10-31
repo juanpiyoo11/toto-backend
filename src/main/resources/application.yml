@@ -67,5 +67,9 @@ spring:
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:19006,http://localhost:8081,http://10.0.2.2:8081}
 
+# Development Configuration
+dev:
+  seed-key: ${DEV_SEED_KEY:local-dev-seed-key-12345}
+
 server:
   port: ${PORT:8080}

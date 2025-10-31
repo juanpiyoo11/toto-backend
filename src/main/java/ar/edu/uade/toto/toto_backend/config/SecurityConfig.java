@@ -65,6 +65,8 @@ public class SecurityConfig {
                         .requestMatchers("/spotify/callback").permitAll()
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/health", "/time").permitAll()
+                        .requestMatchers("/dev/**").permitAll()
                         // All other endpoints require authentication
                         .anyRequest().authenticated()
                 )
