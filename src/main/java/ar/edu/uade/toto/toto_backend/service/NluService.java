@@ -314,11 +314,10 @@ public class NluService {
             rootReq.add("ack_tts");
             rootReq.add("safety_notes");
 
-            // ===== Payload Responses API =====
             ObjectNode root = mapper.createObjectNode();
             root.put("model", model);
             root.put("temperature", 0.0);
-            root.put("stream", true);
+            root.put("stream", false);
             root.put("max_output_tokens", 80);
 
             ArrayNode input = root.putArray("input");
