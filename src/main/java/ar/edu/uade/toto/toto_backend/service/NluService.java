@@ -94,6 +94,7 @@ public class NluService {
                             "\n" +
                             "Hora/fecha ACTUAL:\n" +
                             "- Usá QUERY_TIME/QUERY_DATE solo si piden explícitamente hora/fecha actual (\"¿qué hora es?\", \"¿qué día es hoy?\").\n" +
+                            "- También para formulaciones de cortesía: \"¿me podés/podrías/podrás/podes/podrias/podras/puedes decir la hora?\" → QUERY_TIME.\n" +
                             "- NO uses QUERY_TIME para \"¿a qué hora ...?\", horarios, agenda o recomendaciones → eso es ANSWER.\n" +
                             "\n" +
                             "Spotify (reproducción de música):\n" +
@@ -120,6 +121,9 @@ public class NluService {
 {"intent":"QUERY_TIME","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode ex2U = objectMsg("user", "Que hora es");
             ObjectNode ex2A = objectMsg("assistant", """
+{"intent":"QUERY_TIME","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode ex2bU = objectMsg("user", "¿Me podrás decir la hora?");
+            ObjectNode ex2bA = objectMsg("assistant", """
 {"intent":"QUERY_TIME","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode ex3U = objectMsg("user", "¿Qué día es hoy?");
             ObjectNode ex3A = objectMsg("assistant", """
@@ -325,6 +329,7 @@ public class NluService {
             // shots
             input.add(ex1U); input.add(ex1A);
             input.add(ex2U); input.add(ex2A);
+            input.add(ex2bU); input.add(ex2bA);
             input.add(ex3U); input.add(ex3A);
             input.add(ex4U); input.add(ex4A);
             input.add(ex5U); input.add(ex5A);
@@ -446,6 +451,13 @@ public class NluService {
                     if (out.confidence < 0.90) out.confidence = 0.90;
                 }
 
+                // ===== Post-model: Corrección fuerte para HORA/FECHA ahora =====
+                NluRouteResponse timeDateGuard = guardrailTimeOrDate(norm);
+                if (timeDateGuard != null && !("QUERY_TIME".equalsIgnoreCase(out.intent) || "QUERY_DATE".equalsIgnoreCase(out.intent))) {
+                    log.info("Overriding intent {} → {} por patrón claro de hora/fecha", out.intent, timeDateGuard.intent);
+                    out = timeDateGuard;
+                }
+
                 // Guardrails post-model deshabilitados por defecto
                 if (USE_GUARDRAILS_AFTER_MODEL &&
                         ("ANSWER".equalsIgnoreCase(out.intent) || "UNKNOWN".equalsIgnoreCase(out.intent))) {
@@ -518,7 +530,7 @@ public class NluService {
     private static NluRouteResponse guardrailTimeOrDate(String norm) {
         if (norm == null || norm.isBlank()) return null;
         boolean asksTimeNow =
-                norm.matches(".*\\b(que hora es|tenes la hora|tienes la hora|decime la hora( ahora)?|dime la hora( ahora)?|me decis la hora|me dices la hora|hora actual)\\b.*");
+                norm.matches(".*\\b(que hora es|tenes la hora|tienes la hora|decime la hora( ahora)?|dime la hora( ahora)?|me decis la hora|me dices la hora|me podes decir la hora|me podrias decir la hora|me podras decir la hora|me puedes decir la hora|podes decirme la hora|podrias decirme la hora|podras decirme la hora|puedes decirme la hora|hora actual)\\b.*");
         boolean asksDateNow =
                 norm.matches(".*\\b(que dia es( hoy)?|que fecha es( hoy)?|fecha de hoy|que dia estamos|me decis la fecha|me dices la fecha|decime la fecha|dime la fecha)\\b.*");
         if (asksTimeNow)  return quick("QUERY_TIME");
