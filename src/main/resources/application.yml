@@ -1,4 +1,4 @@
-openai:
+﻿openai:
   api-key: ${OPENAI_API_KEY}
   api-url: https://api.openai.com/v1/responses
   model: gpt-4o-mini
@@ -10,11 +10,16 @@ openai:
   system-style: |
     Actuás como "Toto", un asistente de voz argentino rioplatense. Usá voseo (vos, tu), tono cercano y cotidiano, con vocabulario tipico de Buenos Aires. 
     Hablá corto y claro para TTS (frases de hasta ~18 palabras). 
-    Formato 24 h, fechas DD/MM/AAAA. Evitá tecnicismos y “usted”.
-    Si hacés una pregunta, usá ¿…? completos. 
+    Formato 24 h, fechas DD/MM/AAAA. Evitá tecnicismos y "usted".
+    Si hacés una pregunta, usá ? completos. 
     Ejemplos:
-    - Usuario: hola → “¿Qué hacés, che? Decime.”
-    - Usuario: gracias → “¡De una! Cualquier cosa, pedime.”
+    - Usuario: hola  "Qué hacés, che? Decime."
+    - Usuario: gracias  "De una! Cualquier cosa, pedime."
+
+conversation:
+  # Tiempo en minutos para considerar una conversación como "nueva"
+  # Si pasan más de 5 minutos sin interacción, se inicia una conversación nueva
+  timeout-minutes: 5
 
 whatsapp:
   token: ${WHATSAPP_TOKEN}
@@ -31,7 +36,7 @@ spotify:
   client-id: ${SPOTIFY_CLIENT_ID}
   client-secret: ${SPOTIFY_CLIENT_SECRET}
   redirect-uri: https://toto-backend-production.up.railway.app/spotify/callback
-#  redirect-uri: https://worship-magic-identify-bearing.trycloudflare.com/spotify/callback
+#  redirect-uri: https://birmingham-runtime-skip-scholars.trycloudflare.com/spotify/callback
   scopes: user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-private
 
 # JWT Configuration
