@@ -19,6 +19,11 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    @PostMapping("/login-token")
+    public ResponseEntity<LoginResponse> loginWithToken(@Valid @RequestBody TokenLoginRequest request) {
+        return ResponseEntity.ok(authService.loginWithToken(request));
+    }
+
     @PostMapping("/register")
     public ResponseEntity<LoginResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.ok(authService.register(request));

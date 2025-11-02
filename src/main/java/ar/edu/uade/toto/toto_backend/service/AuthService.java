@@ -30,6 +30,9 @@ public class AuthService {
     @Autowired
     private JwtTokenProvider tokenProvider;
 
+    @Autowired
+    private ar.edu.uade.toto.toto_backend.repository.AccessTokenRepository accessTokenRepository;
+
     @Transactional
     public LoginResponse login(LoginRequest request) {
         Authentication authentication = authenticationManager.authenticate(
@@ -98,6 +101,64 @@ public class AuthService {
         String newRefreshToken = tokenProvider.generateRefreshToken(userId);
 
         return new LoginResponse(newAccessToken, newRefreshToken, UserDTO.fromEntity(user));
+    }
+
+    @Transactional
+    public LoginResponse loginWithToken(TokenLoginRequest request) {
+        ar.edu.uade.toto.toto_backend.entity.AccessToken accessToken = accessTokenRepository
+                .findByTokenAndActiveTrue(request.getToken())
+                .orElseThrow(() -> new BadRequestException("Código inválido o inactivo"));
+
+        // Update last used timestamp
+        accessToken.setLastUsedAt(java.time.LocalDateTime.now());
+        accessTokenRepository.save(accessToken);
+
+        // Get elderly user
+        User user = userRepository.findById(accessToken.getElderlyUserId())
+                .orElseThrow(() -> new BadRequestException("Usuario no encontrado"));
+
+        // Generate JWT tokens
+        UserPrincipal userPrincipal = UserPrincipal.create(user);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userPrincipal, null, userPrincipal.getAuthorities());
+
+        String jwtAccessToken = tokenProvider.generateAccessToken(authentication);
+        String jwtRefreshToken = tokenProvider.generateRefreshToken(user.getId());
+
+        return new LoginResponse(jwtAccessToken, jwtRefreshToken, UserDTO.fromEntity(user));
+    }
+
+    @Transactional
+    public String generateAccessToken(Long elderlyUserId, Long caregiverUserId) {
+        // Generate 6-digit unique token
+        String token;
+        do {
+            token = String.format("%06d", (int) (Math.random() * 1000000));
+        } while (accessTokenRepository.existsByToken(token));
+
+        ar.edu.uade.toto.toto_backend.entity.AccessToken accessToken = new ar.edu.uade.toto.toto_backend.entity.AccessToken();
+        accessToken.setToken(token);
+        accessToken.setElderlyUserId(elderlyUserId);
+        accessToken.setCaregiverUserId(caregiverUserId);
+        accessToken.setActive(true);
+
+        accessTokenRepository.save(accessToken);
+
+        return token;
+    }
+
+    @Transactional
+    public void deactivateAccessToken(String token) {
+        ar.edu.uade.toto.toto_backend.entity.AccessToken accessToken = accessTokenRepository
+                .findByTokenAndActiveTrue(token)
+                .orElseThrow(() -> new BadRequestException("Token no encontrado"));
+
+        accessToken.setActive(false);
+        accessTokenRepository.save(accessToken);
+    }
+
+    public java.util.List<ar.edu.uade.toto.toto_backend.entity.AccessToken> getAccessTokensByElderly(Long elderlyUserId) {
+        return accessTokenRepository.findByElderlyUserIdAndActiveTrue(elderlyUserId);
     }
 
     public UserDTO getCurrentUser() {
