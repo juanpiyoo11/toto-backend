@@ -1,5 +1,6 @@
 package ar.edu.uade.toto.toto_backend.service;
 
+import ar.edu.uade.toto.toto_backend.model.ConversationMessage;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -9,6 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.List;
 
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -51,15 +53,20 @@ public class OpenAIPromptService {
                 "Usá formato 24 h y fechas DD/MM/AAAA.");
     }
 
-    /** Respuesta no-stream */
+    /** Respuesta no-stream (sin historial - legacy) */
     public String ask(String prompt) throws IOException {
+        return ask(prompt, List.of());
+    }
+
+    /** Respuesta con historial de conversación */
+    public String ask(String prompt, List<ConversationMessage> history) throws IOException {
         ensureApiKey();
 
         ObjectNode root = mapper.createObjectNode();
         root.put("model", model);
         root.put("temperature", 0.7);
         root.put("max_output_tokens", 80);
-        root.set("input", buildInput(prompt));
+        root.set("input", buildInput(prompt, history));
 
         Request request = new Request.Builder()
                 .url(apiUrl)
@@ -79,19 +86,35 @@ public class OpenAIPromptService {
     }
 
 
-    /** Construye el array de mensajes input: system (desde YAML) + user */
-    private ArrayNode buildInput(String prompt) {
+    /** Construye el array de mensajes input: system + historial + user nuevo */
+    private ArrayNode buildInput(String prompt, List<ConversationMessage> history) {
         ArrayNode input = mapper.createArrayNode();
 
+        // 1. System message (siempre al inicio)
         ObjectNode sys = mapper.createObjectNode();
         sys.put("role", "system");
         sys.put("content", systemStyle);
+        input.add(sys);
+
+        // 2. Historial de conversación (si existe y no incluye ya el system)
+        if (history != null && !history.isEmpty()) {
+            for (ConversationMessage msg : history) {
+                // Evitar duplicar el system message
+                if ("system".equals(msg.getRole())) continue;
+                
+                ObjectNode msgNode = mapper.createObjectNode();
+                msgNode.put("role", msg.getRole());
+                msgNode.put("content", msg.getContent());
+                input.add(msgNode);
+            }
+        }
+
+        // 3. Mensaje actual del usuario
         ObjectNode usr = mapper.createObjectNode();
         usr.put("role", "user");
         usr.put("content", (prompt == null) ? "" : prompt);
-
-        input.add(sys);
         input.add(usr);
+
         return input;
     }
 

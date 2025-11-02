@@ -1,5 +1,7 @@
 package ar.edu.uade.toto.toto_backend.web;
 
+import ar.edu.uade.toto.toto_backend.model.ConversationMessage;
+import ar.edu.uade.toto.toto_backend.service.ConversationMemoryService;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.Map;
 
 import ar.edu.uade.toto.toto_backend.dto.AskRequest;
@@ -22,21 +25,51 @@ public class OpenAIController {
 
     private final OpenAISTTService stt;
     private final OpenAIPromptService prompts;
+    private final ConversationMemoryService conversationMemory;
 
-    public OpenAIController(OpenAISTTService stt, OpenAIPromptService prompts) {
+    public OpenAIController(OpenAISTTService stt, OpenAIPromptService prompts, ConversationMemoryService conversationMemory) {
         this.stt = stt;
         this.prompts = prompts;
+        this.conversationMemory = conversationMemory;
     }
 
     @PostMapping("/ask")
     public AskResponse ask(@RequestBody AskRequest body) {
         String prompt = (body != null && body.prompt != null) ? body.prompt : "";
+        String userId = (body != null && body.userId != null && !body.userId.isBlank()) 
+                        ? body.userId 
+                        : "default-user";
+        
         try {
-            String reply = prompts.ask(prompt);
-            return new AskResponse(reply);
+            // Obtener historial de conversación
+            List<ConversationMessage> history = conversationMemory.getHistory(userId);
+            
+            // Hacer pregunta a OpenAI con contexto
+            String reply = prompts.ask(prompt, history);
+            
+            // Guardar el intercambio en la memoria
+            conversationMemory.addMessage(userId, "user", prompt);
+            conversationMemory.addMessage(userId, "assistant", reply);
+            
+            // Obtener session ID para debugging
+            String sessionId = conversationMemory.getCurrentSessionId(userId);
+            
+            return new AskResponse(reply, sessionId);
         } catch (Exception e) {
-            return new AskResponse("ERROR: " + e.getMessage());
+            return new AskResponse("ERROR: " + e.getMessage(), null);
         }
+    }
+
+    @PostMapping("/conversation/clear")
+    public Map<String, String> clearConversation(@RequestBody Map<String, String> body) {
+        String userId = body.getOrDefault("userId", "default-user");
+        conversationMemory.clearSession(userId);
+        return Map.of("status", "ok", "message", "Conversación limpiada para usuario: " + userId);
+    }
+
+    @PostMapping("/conversation/stats")
+    public Map<String, Object> getConversationStats() {
+        return conversationMemory.getStats();
     }
 
     @PostMapping(value = "/stt", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
