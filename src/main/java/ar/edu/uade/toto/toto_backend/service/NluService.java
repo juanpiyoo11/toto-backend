@@ -489,10 +489,10 @@ public class NluService {
                         out.intent, out.confidence, out.needs_confirmation, norm, slotsLog);
 
                 if ("SET_ALARM".equalsIgnoreCase(out.intent)) {
-                    boolean faltaHora = (out.slots.hour == null || out.slots.minute == null);
                     Integer minsRel = parseRelativeMinutes(norm); // detecta "en 10 minutos", "en 2 horas", etc.
 
-                    if (faltaHora && minsRel != null && minsRel > 0) {
+                    // Si detectamos tiempo relativo, SIEMPRE lo usamos (ignorando hour/minute del modelo)
+                    if (minsRel != null && minsRel > 0) {
                         java.time.ZoneId zone = safeZone(tz);
                         java.time.ZonedDateTime tgt = java.time.Instant.ofEpochMilli(nowMs)
                                 .atZone(zone)
