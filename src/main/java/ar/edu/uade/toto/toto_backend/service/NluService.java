@@ -239,6 +239,18 @@ public class NluService {
             ObjectNode fall3A = objectMsg("assistant", """
 {"intent":"FALL","confidence":0.97,"needs_confirmation":false,
  "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"possible fall"}""");
+            ObjectNode fall4U = objectMsg("user", "ayuda");
+            ObjectNode fall4A = objectMsg("assistant", """
+{"intent":"FALL","confidence":0.98,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"help request"}""");
+            ObjectNode fall5U = objectMsg("user", "me duele mucho");
+            ObjectNode fall5A = objectMsg("assistant", """
+{"intent":"FALL","confidence":0.96,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"pain reported"}""");
+            ObjectNode fall6U = objectMsg("user", "no estoy bien");
+            ObjectNode fall6A = objectMsg("assistant", """
+{"intent":"FALL","confidence":0.95,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"health concern"}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -359,6 +371,9 @@ public class NluService {
             input.add(fall1U); input.add(fall1A);
             input.add(fall2U); input.add(fall2A);
             input.add(fall3U); input.add(fall3A);
+            input.add(fall4U); input.add(fall4A);
+            input.add(fall5U); input.add(fall5A);
+            input.add(fall6U); input.add(fall6A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
@@ -594,17 +609,29 @@ public class NluService {
     private static NluRouteResponse guardrailFall(String norm) {
         if (norm == null || norm.isBlank()) return null;
 
-        boolean saidFall = norm.matches(".*\\b(me cai|me ca[ií]do|me tropec[eé]|me desmaye|me pegue|me golpee)\\b.*");
-        boolean pain     = norm.matches(".*\\b(me duele|me lastime|me fracture|me rompi|me torci|no puedo levantarme)\\b.*");
-        boolean hypothetical = norm.matches(".*\\b(si|cuando)\\s+me\\s+(caigo|caiga|llego a caer)\\b.*");
+        // Detectar contexto hipotético (NO es emergencia real)
+        boolean hypothetical = norm.matches(".*\\b(si|cuando|que hago si|como hago|que hacer si|que tengo que hacer)\\b.*");
+        if (hypothetical) return null;
 
-        if (!hypothetical && (saidFall || pain)) {
+        // Patrones de caída
+        boolean saidFall = norm.matches(".*\\b(me cai|me ca[ií]do|me tropec[eé]|me desmaye|me pegue|me golpee)\\b.*");
+        
+        // Patrones de dolor o incapacidad
+        boolean pain = norm.matches(".*\\b(me duele|me lastime|me fracture|me rompi|me torci|no puedo levantarme|no puedo pararme|no me puedo mover)\\b.*");
+        
+        // Patrones de estado general
+        boolean badState = norm.matches(".*\\b(no estoy bien|no esta bien|estoy mal)\\b.*");
+        
+        // Patrones de pedido de ayuda explícito
+        boolean helpRequest = norm.matches(".*\\b(ayuda|ayudame|ayudame|auxilio|emergencia|ambulancia|doctor|medico)\\b.*");
+
+        if (saidFall || pain || badState || helpRequest) {
             NluRouteResponse r = new NluRouteResponse();
             r.intent = "FALL";
             r.confidence = 0.96;
             r.needs_confirmation = false;
             r.ack_tts = null;
-            r.safety_notes = "possible fall";
+            r.safety_notes = "possible fall or help request";
             r.slots = new NluRouteResponse.Slots();
             return r;
         }
