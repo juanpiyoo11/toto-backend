@@ -750,23 +750,36 @@ public class NluService {
     private static Integer parseRelativeMinutes(String norm) {
         if (norm == null || norm.isBlank()) return null;
 
-        // en X minutos
-        java.util.regex.Matcher mMin = java.util.regex.Pattern
-                .compile("\\ben\\s+(\\d{1,3})\\s+minut(?:o|os)\\b")
-                .matcher(norm);
-        if (mMin.find()) {
-            try { return Math.max(1, Integer.parseInt(mMin.group(1))); } catch (Exception ignore) {}
-        }
+        int totalMinutes = 0;
+        boolean foundAny = false;
 
-        // en X horas
+        // en X horas (captura horas)
         java.util.regex.Matcher mHr = java.util.regex.Pattern
                 .compile("\\ben\\s+(\\d{1,2})\\s+hor(?:a|as)\\b")
                 .matcher(norm);
         if (mHr.find()) {
-            try { return Math.max(1, Integer.parseInt(mHr.group(1)) * 60); } catch (Exception ignore) {}
+            try {
+                totalMinutes += Integer.parseInt(mHr.group(1)) * 60;
+                foundAny = true;
+            } catch (Exception ignore) {}
         }
 
-        // variantes simples comunes
+        // (y) X minutos (captura minutos, con o sin "y")
+        java.util.regex.Matcher mMin = java.util.regex.Pattern
+                .compile("(?:y\\s+)?(\\d{1,3})\\s+minut(?:o|os)\\b")
+                .matcher(norm);
+        if (mMin.find()) {
+            try {
+                totalMinutes += Integer.parseInt(mMin.group(1));
+                foundAny = true;
+            } catch (Exception ignore) {}
+        }
+
+        if (foundAny) {
+            return Math.max(1, totalMinutes);
+        }
+
+        // variantes simples comunes (solo si no se encontró nada arriba)
         if (norm.contains("media hora")) return 30;
         if (norm.contains("un minuto") || norm.contains("1 minuto")) return 1;
         if (norm.contains("una hora") || norm.contains("1 hora")) return 60;
