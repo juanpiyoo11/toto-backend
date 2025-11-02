@@ -504,10 +504,10 @@ public class NluService {
                         out.slots.datetime_iso = tgt.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME);
                         out.needs_confirmation = false;
                         if (out.confidence < 0.95) out.confidence = 0.95;
-                        if (out.ack_tts == null || out.ack_tts.isBlank()) {
-                            out.ack_tts = minsRel == 1 ? "Listo, en 1 minuto." : ("Listo, en " + minsRel + " minutos.");
-                        }
                     }
+                    
+                    // No generar ack_tts para alarmas: el cliente habla la confirmación completa
+                    out.ack_tts = null;
                 }
 
                 return out;
