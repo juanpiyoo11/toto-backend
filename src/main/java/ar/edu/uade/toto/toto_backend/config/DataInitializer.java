@@ -1,8 +1,10 @@
 package ar.edu.uade.toto.toto_backend.config;
 
 import ar.edu.uade.toto.toto_backend.entity.AccessToken;
+import ar.edu.uade.toto.toto_backend.entity.CareRelationship;
 import ar.edu.uade.toto.toto_backend.entity.User;
 import ar.edu.uade.toto.toto_backend.repository.AccessTokenRepository;
+import ar.edu.uade.toto.toto_backend.repository.CareRelationshipRepository;
 import ar.edu.uade.toto.toto_backend.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -22,6 +24,9 @@ public class DataInitializer {
 
     @Autowired
     private AccessTokenRepository accessTokenRepository;
+
+    @Autowired
+    private CareRelationshipRepository careRelationshipRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -64,6 +69,15 @@ public class DataInitializer {
 
             caregiver = userRepository.save(caregiver);
             log.info("Created caregiver user: {}", caregiver.getName());
+
+            // Create care relationship
+            CareRelationship relationship = new CareRelationship();
+            relationship.setCaregiverId(caregiver.getId());
+            relationship.setElderlyId(elderly.getId());
+            relationship.setRelationship("Familiar"); // Could be "Hija", "Hijo", "Cuidador", etc.
+
+            careRelationshipRepository.save(relationship);
+            log.info("Created care relationship: {} -> {}", caregiver.getName(), elderly.getName());
 
             // Generate access token for elderly user (6-digit code)
             String token = "123456"; // Fixed token for testing
