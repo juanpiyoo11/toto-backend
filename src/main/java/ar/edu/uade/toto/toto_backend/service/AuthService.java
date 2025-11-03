@@ -182,9 +182,25 @@ public class AuthService {
 
     public UserDTO getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        
+        // Handle different principal types
+        Object principal = authentication.getPrincipal();
+        Long userId;
+        
+        if (principal instanceof UserPrincipal) {
+            userId = ((UserPrincipal) principal).getId();
+        } else if (principal instanceof String) {
+            // Sometimes Spring Security stores the username/id as a String
+            try {
+                userId = Long.parseLong((String) principal);
+            } catch (NumberFormatException e) {
+                throw new BadRequestException("No se pudo identificar el usuario");
+            }
+        } else {
+            throw new BadRequestException("Tipo de principal no soportado: " + principal.getClass().getName());
+        }
 
-        User user = userRepository.findById(userPrincipal.getId())
+        User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BadRequestException("Usuario no encontrado"));
 
         return UserDTO.fromEntity(user);

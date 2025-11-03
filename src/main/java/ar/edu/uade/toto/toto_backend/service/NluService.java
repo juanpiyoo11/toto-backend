@@ -110,7 +110,12 @@ public class NluService {
                             "- Repeat: \"repetir tema\" → SPOTIFY_SET_REPEAT con slots.message_text=\"track\"; \"repetir lista\" → \"context\"; \"sacar repeat\" → \"off\".\n" +
                             "\n" +
                             "Recordatorios:\n" +
-                            "- \"recordame/acordame/anotame que\" + descripción → CREATE_REMINDER. Guardá descripción completa en slots.message_text.\n" +
+                            "- \"recordame/acordame/anotame que\" + descripción → CREATE_REMINDER.\n" +
+                            "  * slots.message_text: descripción completa del usuario.\n" +
+                            "  * slots.reminder_title: extrae SOLO el núcleo/objeto principal SIN palabras temporales (mañana, hoy, pasado mañana, el lunes, etc.).\n" +
+                            "    Ejemplos: \"mañana tengo turno médico\" → title=\"turno médico\"; \"tomar la aspirina\" → title=\"tomar la aspirina\".\n" +
+                            "  * slots.reminder_type: clasifica en \"medication\" (remedios/pastillas/tomar medicamentos), \"appointment\" (turnos médicos/citas/dentista/doctor), o \"event\" (otros eventos/tareas generales).\n" +
+                            "  * slots.repeat_pattern: determina frecuencia. Valores: \"once\" (única vez, ej: \"mañana tengo turno\"), \"daily\" (todos los días/diario, ej: \"todos los días a las 8\"), \"weekly\" (todas las semanas), \"monthly\" (mensual). Default: \"once\" si no se especifica.\n" +
                             "- Si falta hora: needs_confirmation=true, clarifying_question=\"¿A qué hora querés que te lo recuerde?\".\n" +
                             "- \"qué medicamentos/remedios tengo\", \"qué tengo que tomar\", \"mis recordatorios\" → QUERY_REMINDERS.\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
@@ -252,12 +257,12 @@ public class NluService {
             ObjectNode rem1U = objectMsg("user", "Recordame que mañana tengo turno médico");
             ObjectNode rem1A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.97,"needs_confirmation":true,
- "slots":{"message_text":"mañana tengo turno médico"},
+ "slots":{"message_text":"mañana tengo turno médico","reminder_title":"turno médico","reminder_type":"appointment","repeat_pattern":"once"},
  "ack_tts":null,"clarifying_question":"¿A qué hora querés que te lo recuerde?","safety_notes":null}""");
             ObjectNode rem2U = objectMsg("user", "Anotame que tengo que tomar la aspirina a las 3 de la tarde");
             ObjectNode rem2A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
- "slots":{"message_text":"tengo que tomar la aspirina a las 3 de la tarde","hour":15,"minute":0},
+ "slots":{"message_text":"tengo que tomar la aspirina a las 3 de la tarde","reminder_title":"tomar la aspirina","reminder_type":"medication","repeat_pattern":"once","hour":15,"minute":0},
  "ack_tts":"Listo, te anoto el recordatorio.","clarifying_question":null,"safety_notes":null}""");
             ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy");
             ObjectNode rem3A = objectMsg("assistant", """
@@ -275,6 +280,23 @@ public class NluService {
             ObjectNode rem6A = objectMsg("assistant", """
 {"intent":"DENY_MEDICATION","confidence":0.96,"needs_confirmation":false,
  "slots":{},"ack_tts":"Bueno, avisame cuando la tomes.","clarifying_question":null,"safety_notes":null}""");
+            
+            // Additional reminder examples
+            ObjectNode rem7U = objectMsg("user", "Recordame que tengo que tomar el ibuprofeno todos los días a las 8");
+            ObjectNode rem7A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
+ "slots":{"message_text":"tengo que tomar el ibuprofeno todos los días a las 8","reminder_title":"tomar el ibuprofeno","reminder_type":"medication","repeat_pattern":"daily","hour":8,"minute":0},
+ "ack_tts":"Listo, te programo el recordatorio diario.","clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem8U = objectMsg("user", "Acordate que el viernes tengo reunión familiar");
+            ObjectNode rem8A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.96,"needs_confirmation":true,
+ "slots":{"message_text":"el viernes tengo reunión familiar","reminder_title":"reunión familiar","reminder_type":"event","repeat_pattern":"once"},
+ "ack_tts":null,"clarifying_question":"¿A qué hora querés que te lo recuerde?","safety_notes":null}""");
+            ObjectNode rem9U = objectMsg("user", "Recordame que mañana tengo un turno medico a las 8");
+            ObjectNode rem9A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
+ "slots":{"message_text":"mañana tengo un turno medico a las 8","reminder_title":"turno médico","reminder_type":"appointment","repeat_pattern":"once","hour":8,"minute":0},
+ "ack_tts":"Perfecto, te anoto el turno médico.","clarifying_question":null,"safety_notes":null}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -332,6 +354,16 @@ public class NluService {
 
             ArrayNode tMsg = slotsProps.putObject("message_text").putArray("type");
             tMsg.add("string").add("null");
+            
+            // Reminder-specific fields
+            ArrayNode tReminderTitle = slotsProps.putObject("reminder_title").putArray("type");
+            tReminderTitle.add("string").add("null");
+            
+            ArrayNode tReminderType = slotsProps.putObject("reminder_type").putArray("type");
+            tReminderType.add("string").add("null");
+            
+            ArrayNode tRepeatPattern = slotsProps.putObject("repeat_pattern").putArray("type");
+            tRepeatPattern.add("string").add("null");
 
             ArrayNode slotsReq = slots.putArray("required");
             slotsReq.add("contact_query");
@@ -339,6 +371,9 @@ public class NluService {
             slotsReq.add("minute");
             slotsReq.add("datetime_iso");
             slotsReq.add("message_text");
+            slotsReq.add("reminder_title");
+            slotsReq.add("reminder_type");
+            slotsReq.add("repeat_pattern");
 
             ArrayNode tClar = props.putObject("clarifying_question").putArray("type");
             tClar.add("string").add("null");
@@ -405,6 +440,9 @@ public class NluService {
             input.add(rem4U); input.add(rem4A);
             input.add(rem5U); input.add(rem5A);
             input.add(rem6U); input.add(rem6A);
+            input.add(rem7U); input.add(rem7A);
+            input.add(rem8U); input.add(rem8A);
+            input.add(rem9U); input.add(rem9A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
