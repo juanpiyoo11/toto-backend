@@ -123,4 +123,13 @@ public class UserController {
     public ResponseEntity<UserDTO> createElderly(@Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.createElderly(request));
     }
+
+    /**
+     * Get access token for an elderly user.
+     * GET /api/user/{userId}/access-token
+     */
+    @GetMapping("/{userId}/access-token")
+    public ResponseEntity<Map<String, String>> getElderlyAccessToken(@PathVariable Long userId) {
+        return ResponseEntity.ok(userService.getElderlyAccessToken(userId));
+    }
 }

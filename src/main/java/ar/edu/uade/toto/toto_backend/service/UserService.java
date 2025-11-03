@@ -45,6 +45,9 @@ public class UserService {
     @Autowired
     private CareRelationshipRepository careRelationshipRepository;
 
+    @Autowired
+    private ar.edu.uade.toto.toto_backend.repository.AccessTokenRepository accessTokenRepository;
+
     // In-memory storage for password reset tokens (for simplicity)
     // In production, use Redis or database with expiration
     private final Map<String, Long> resetTokens = new HashMap<>();
@@ -303,6 +306,9 @@ public class UserService {
     public UserDTO createElderly(UpdateProfileRequest request) {
         log.info("Creating elderly user: {}", request.getName());
 
+        // Get current authenticated user (caregiver)
+        User caregiver = getCurrentUser();
+
         User elderly = new User();
         elderly.setName(request.getName());
         elderly.setPhone(request.getPhone());
@@ -316,6 +322,61 @@ public class UserService {
         elderly = userRepository.save(elderly);
         log.info("Elderly user created with ID: {}", elderly.getId());
 
+        // Generate 6-digit access token
+        String token = generateSixDigitToken();
+        ar.edu.uade.toto.toto_backend.entity.AccessToken accessToken = new ar.edu.uade.toto.toto_backend.entity.AccessToken();
+        accessToken.setToken(token);
+        accessToken.setElderlyUserId(elderly.getId());
+        accessToken.setCaregiverUserId(caregiver.getId());
+        accessToken.setActive(true);
+        
+        accessTokenRepository.save(accessToken);
+        log.info("Generated access token {} for elderly user {}", token, elderly.getName());
+
         return UserDTO.fromEntity(elderly);
+    }
+
+    /**
+     * Generate a unique 6-digit numeric token
+     */
+    private String generateSixDigitToken() {
+        String token;
+        do {
+            int randomNum = (int) (Math.random() * 900000) + 100000; // Generate 6-digit number (100000-999999)
+            token = String.valueOf(randomNum);
+        } while (accessTokenRepository.findByToken(token).isPresent()); // Ensure uniqueness
+        
+        return token;
+    }
+
+    /**
+     * Get access token for an elderly user.
+     * Accessible by the caregiver who has a relationship with the elderly.
+     *
+     * @param elderlyId The ID of the elderly user
+     * @return Map with the access token
+     */
+    public Map<String, String> getElderlyAccessToken(Long elderlyId) {
+        User currentUser = getCurrentUser();
+        
+        // Verify that the elderly exists
+        User elderly = userRepository.findById(elderlyId)
+                .orElseThrow(() -> new BadRequestException("Adulto mayor no encontrado"));
+        
+        // Verify that current user is a caregiver of this elderly
+        boolean hasRelationship = careRelationshipRepository
+                .findByCaregiverIdAndElderlyId(currentUser.getId(), elderlyId)
+                .isPresent();
+        
+        if (!hasRelationship) {
+            throw new BadRequestException("No tienes permiso para ver el token de este adulto mayor");
+        }
+        
+        // Get the access token
+        ar.edu.uade.toto.toto_backend.entity.AccessToken accessToken = accessTokenRepository
+                .findByElderlyUserIdAndActive(elderlyId, true)
+                .orElseThrow(() -> new BadRequestException("No se encontró un token activo para este adulto mayor"));
+        
+        return Map.of("token", accessToken.getToken());
     }
 }
