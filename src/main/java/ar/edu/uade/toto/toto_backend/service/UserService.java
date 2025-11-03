@@ -21,6 +21,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +48,9 @@ public class UserService {
 
     @Autowired
     private ar.edu.uade.toto.toto_backend.repository.AccessTokenRepository accessTokenRepository;
+
+    @Autowired
+    private ar.edu.uade.toto.toto_backend.repository.ContactRepository contactRepository;
 
     // In-memory storage for password reset tokens (for simplicity)
     // In production, use Redis or database with expiration
@@ -208,32 +212,45 @@ public class UserService {
     
     /**
      * Get emergency contacts (caregivers) for the current elderly user.
+     * Now also includes trusted contacts from the contacts table.
      *
-     * @return List of emergency contacts
+     * @return List of emergency contacts (caregivers + trusted contacts)
      */
     public List<EmergencyContactDTO> getEmergencyContacts() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
         
-        // Get all care relationships where current user is the elderly
+        List<EmergencyContactDTO> emergencyContacts = new ArrayList<>();
+        
+        // 1. Get all caregivers from care relationships
         List<CareRelationship> relationships = careRelationshipRepository.findByElderlyId(userPrincipal.getId());
         
-        // Map to DTOs with caregiver information
-        return relationships.stream()
-                .map(rel -> {
-                    User caregiver = userRepository.findById(rel.getCaregiverId())
-                            .orElse(null);
-                    if (caregiver == null) return null;
-                    
-                    return new EmergencyContactDTO(
-                            caregiver.getId(),
-                            caregiver.getName(),
-                            caregiver.getPhone(),
-                            rel.getRelationship()
-                    );
-                })
-                .filter(dto -> dto != null)
-                .collect(Collectors.toList());
+        for (CareRelationship rel : relationships) {
+            User caregiver = userRepository.findById(rel.getCaregiverId()).orElse(null);
+            if (caregiver != null) {
+                emergencyContacts.add(new EmergencyContactDTO(
+                        caregiver.getId(),
+                        caregiver.getName(),
+                        caregiver.getPhone(),
+                        rel.getRelationship()
+                ));
+            }
+        }
+        
+        // 2. Get all trusted contacts from contacts table
+        List<ar.edu.uade.toto.toto_backend.entity.Contact> trustedContacts = 
+                contactRepository.findByElderlyId(userPrincipal.getId());
+        
+        for (ar.edu.uade.toto.toto_backend.entity.Contact contact : trustedContacts) {
+            emergencyContacts.add(new EmergencyContactDTO(
+                    contact.getId(),
+                    contact.getName(),
+                    contact.getPhone(),
+                    contact.getRelationship()
+            ));
+        }
+        
+        return emergencyContacts;
     }
     
     /**
