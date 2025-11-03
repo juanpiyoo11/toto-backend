@@ -45,7 +45,7 @@ public class DataInitializer {
             // Create elderly user (Juan Pablo Yoo)
             User elderly = new User();
             elderly.setName("Juan Pablo Yoo");
-            elderly.setEmail(null); // Elderly users don't need email (use access token)
+            elderly.setEmail("tamara.m94@hotmail.com"); // Elderly users don't need email (use access token)
             elderly.setPassword(null); // Elderly users don't need password (use access token)
             elderly.setPhone("+5491158550932");
             elderly.setRole("ELDERLY");
