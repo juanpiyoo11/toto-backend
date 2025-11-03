@@ -62,14 +62,28 @@ public class ReminderNotificationService {
     /**
      * Determines if a reminder should be triggered based on its effective time and whether
      * it has already been announced today.
+     * 
+     * Logic:
+     * - MEDICATION: Triggers exactly at reminderTime (no early window)
+     * - APPOINTMENT/EVENT: Triggers at reminderTime - leadTimeMinutes (no early window)
+     * - All types: Allow up to 60 minutes late for missed reminders
      */
     private boolean shouldTriggerReminder(Reminder reminder, LocalDateTime now) {
         LocalDateTime effectiveTime = reminder.getEffectiveReminderTime();
         
-        // Check if it's time to trigger (within a 15-minute window)
+        // Calculate minutes difference
         long minutesUntil = ChronoUnit.MINUTES.between(now, effectiveTime);
-        if (minutesUntil > 15 || minutesUntil < -60) {
-            return false; // Too early or too late (more than 1 hour past)
+        
+        // For MEDICATION: trigger exactly at time (0 min early, up to 60 min late)
+        // For APPOINTMENT/EVENT: trigger at effectiveTime (already includes leadTime subtraction)
+        if (minutesUntil > 0) {
+            // Not yet time - don't trigger
+            return false;
+        }
+        
+        if (minutesUntil < -60) {
+            // More than 1 hour late - too late
+            return false;
         }
         
         // Check if already announced today
