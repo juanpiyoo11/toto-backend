@@ -2,6 +2,7 @@ package ar.edu.uade.toto.toto_backend.web;
 
 import ar.edu.uade.toto.toto_backend.dto.auth.UserDTO;
 import ar.edu.uade.toto.toto_backend.dto.user.ChangePasswordRequest;
+import ar.edu.uade.toto.toto_backend.dto.user.EmergencyContactDTO;
 import ar.edu.uade.toto.toto_backend.dto.user.ForgotPasswordRequest;
 import ar.edu.uade.toto.toto_backend.dto.user.ResetPasswordRequest;
 import ar.edu.uade.toto.toto_backend.dto.user.UpdateProfileRequest;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -80,5 +82,15 @@ public class UserController {
     @DeleteMapping("/account")
     public ResponseEntity<Map<String, String>> deleteAccount() {
         return ResponseEntity.ok(userService.deleteAccount());
+    }
+
+    /**
+     * Get emergency contacts for current elderly user.
+     * Returns list of caregivers associated with this elderly user.
+     * GET /api/user/emergency-contacts
+     */
+    @GetMapping("/emergency-contacts")
+    public ResponseEntity<List<EmergencyContactDTO>> getEmergencyContacts() {
+        return ResponseEntity.ok(userService.getEmergencyContacts());
     }
 }

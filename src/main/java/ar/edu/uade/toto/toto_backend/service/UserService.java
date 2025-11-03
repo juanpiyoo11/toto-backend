@@ -2,11 +2,14 @@ package ar.edu.uade.toto.toto_backend.service;
 
 import ar.edu.uade.toto.toto_backend.dto.auth.UserDTO;
 import ar.edu.uade.toto.toto_backend.dto.user.ChangePasswordRequest;
+import ar.edu.uade.toto.toto_backend.dto.user.EmergencyContactDTO;
 import ar.edu.uade.toto.toto_backend.dto.user.ForgotPasswordRequest;
 import ar.edu.uade.toto.toto_backend.dto.user.ResetPasswordRequest;
 import ar.edu.uade.toto.toto_backend.dto.user.UpdateProfileRequest;
+import ar.edu.uade.toto.toto_backend.entity.CareRelationship;
 import ar.edu.uade.toto.toto_backend.entity.User;
 import ar.edu.uade.toto.toto_backend.exception.BadRequestException;
+import ar.edu.uade.toto.toto_backend.repository.CareRelationshipRepository;
 import ar.edu.uade.toto.toto_backend.repository.UserRepository;
 import ar.edu.uade.toto.toto_backend.security.UserPrincipal;
 import org.slf4j.Logger;
@@ -19,8 +22,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Service for user profile management operations.
@@ -36,6 +41,9 @@ public class UserService {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    
+    @Autowired
+    private CareRelationshipRepository careRelationshipRepository;
 
     // In-memory storage for password reset tokens (for simplicity)
     // In production, use Redis or database with expiration
@@ -193,5 +201,35 @@ public class UserService {
         Map<String, String> response = new HashMap<>();
         response.put("message", "Cuenta eliminada correctamente");
         return response;
+    }
+    
+    /**
+     * Get emergency contacts (caregivers) for the current elderly user.
+     *
+     * @return List of emergency contacts
+     */
+    public List<EmergencyContactDTO> getEmergencyContacts() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        
+        // Get all care relationships where current user is the elderly
+        List<CareRelationship> relationships = careRelationshipRepository.findByElderlyId(userPrincipal.getId());
+        
+        // Map to DTOs with caregiver information
+        return relationships.stream()
+                .map(rel -> {
+                    User caregiver = userRepository.findById(rel.getCaregiverId())
+                            .orElse(null);
+                    if (caregiver == null) return null;
+                    
+                    return new EmergencyContactDTO(
+                            caregiver.getId(),
+                            caregiver.getName(),
+                            caregiver.getPhone(),
+                            rel.getRelationship()
+                    );
+                })
+                .filter(dto -> dto != null)
+                .collect(Collectors.toList());
     }
 }
