@@ -23,7 +23,4 @@ public class UpdateProfileRequest {
 
     @Size(max = 1000)
     private String medicalInfo;
-
-    @Size(max = 500)
-    private String emergencyContact;
 }

@@ -285,7 +285,6 @@ public class UserService {
         user.setAddress(request.getAddress());
         user.setBirthdate(request.getBirthdate());
         user.setMedicalInfo(request.getMedicalInfo());
-        user.setEmergencyContact(request.getEmergencyContact());
 
         user = userRepository.save(user);
         log.info("Profile updated for user ID: {}", userId);
