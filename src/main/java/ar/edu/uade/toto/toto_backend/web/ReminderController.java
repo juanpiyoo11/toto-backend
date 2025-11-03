@@ -127,4 +127,36 @@ public class ReminderController {
         
         return ResponseEntity.ok(reminderService.getTodayReminders(elderlyId, reminderType));
     }
+
+    /**
+     * Delete reminders by criteria (used for voice commands).
+     * Example: DELETE /api/reminders/search?elderlyId=1&title=paracetamol&hour=18&type=medication
+     */
+    @DeleteMapping("/search")
+    public ResponseEntity<Map<String, Object>> deleteRemindersByCriteria(
+            @RequestParam Long elderlyId,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) Integer hour,
+            @RequestParam(required = false) Integer minute,
+            @RequestParam(required = false) String type) {
+        
+        Reminder.ReminderType reminderType = null;
+        if (type != null && !type.isEmpty()) {
+            try {
+                reminderType = Reminder.ReminderType.valueOf(type.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid type, ignore
+            }
+        }
+        
+        int deletedCount = reminderService.deleteRemindersByCriteria(elderlyId, title, hour, minute, reminderType);
+        
+        return ResponseEntity.ok(Map.of(
+            "deletedCount", deletedCount,
+            "message", deletedCount > 0 
+                ? "Se eliminaron " + deletedCount + " recordatorio" + (deletedCount > 1 ? "s" : "")
+                : "No se encontraron recordatorios con esos criterios"
+        ));
+    }
 }
+

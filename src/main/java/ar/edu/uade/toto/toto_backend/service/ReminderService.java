@@ -155,4 +155,49 @@ public class ReminderService {
                 .map(ReminderDTO::fromEntity)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * Find and delete reminders matching the given criteria.
+     * Used for voice commands like "eliminame el recordatorio de paracetamol para las 18hrs"
+     * @param elderlyId The elderly person's ID
+     * @param titleKeyword Partial match on title (case-insensitive)
+     * @param hour Optional hour filter
+     * @param minute Optional minute filter
+     * @param reminderType Optional type filter
+     * @return Number of reminders deleted
+     */
+    @Transactional
+    public int deleteRemindersByCriteria(Long elderlyId, String titleKeyword, Integer hour, Integer minute, Reminder.ReminderType reminderType) {
+        List<Reminder> matches = reminderRepository.findByElderlyIdAndActive(elderlyId, true).stream()
+                .filter(r -> {
+                    // Title match (case-insensitive partial match)
+                    boolean titleMatch = titleKeyword == null || 
+                                         r.getTitle().toLowerCase().contains(titleKeyword.toLowerCase());
+                    if (!titleMatch) return false;
+                    
+                    // Type match
+                    boolean typeMatch = reminderType == null || r.getReminderType() == reminderType;
+                    if (!typeMatch) return false;
+                    
+                    // Time match (if specified)
+                    if (hour != null && r.getReminderTime() != null) {
+                        boolean hourMatch = r.getReminderTime().getHour() == hour;
+                        if (!hourMatch) return false;
+                        
+                        if (minute != null) {
+                            boolean minuteMatch = r.getReminderTime().getMinute() == minute;
+                            if (!minuteMatch) return false;
+                        }
+                    }
+                    
+                    return true;
+                })
+                .collect(Collectors.toList());
+        
+        // Delete all matches
+        matches.forEach(reminderRepository::delete);
+        
+        return matches.size();
+    }
 }
+

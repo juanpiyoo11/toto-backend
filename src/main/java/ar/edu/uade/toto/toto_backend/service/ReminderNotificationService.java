@@ -121,11 +121,15 @@ public class ReminderNotificationService {
 
     /**
      * Mark a reminder as announced by creating a history event.
+     * Auto-deactivates one-time reminders after announcement.
      * Called after the Android app confirms it has announced the reminder to the user.
      */
     @Transactional
     public void markReminderAnnounced(Long reminderId, Long elderlyId) {
         try {
+            // Get the reminder to check its repeat pattern
+            Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
+            
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "announced");
@@ -137,6 +141,13 @@ public class ReminderNotificationService {
             
             historyEventRepository.save(event);
             log.info("Marked reminder {} as announced for elderlyId={}", reminderId, elderlyId);
+            
+            // Auto-deactivate if it's a one-time reminder
+            if (reminder != null && "once".equalsIgnoreCase(reminder.getRepeatPattern())) {
+                reminder.setActive(false);
+                reminderRepository.save(reminder);
+                log.info("Auto-deactivated one-time reminder {} after announcement", reminderId);
+            }
         } catch (Exception e) {
             log.error("Error marking reminder as announced: reminderId={}, elderlyId={}", reminderId, elderlyId, e);
         }

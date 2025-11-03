@@ -140,6 +140,11 @@ public class NluService {
                             "    - null si pregunta genéricamente por \"recordatorios\" o \"qué tengo\".\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
                             "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
+                            "- \"eliminame/borrá/sacá/cancelá el recordatorio\" + descripción → DELETE_REMINDER.\n" +
+                            "  * slots.reminder_title: extrae el título/descripción del recordatorio a eliminar (ej: \"paracetamol\", \"cita con el médico\", \"cumpleaños de jorge\").\n" +
+                            "  * slots.hour y slots.minute: si menciona hora específica (\"para las 18\", \"de las 6\").\n" +
+                            "  * slots.query_reminder_type: tipo de recordatorio si está implícito (\"medication\", \"appointment\", \"event\").\n" +
+                            "  * Ejemplos: \"eliminame el recordatorio de paracetamol para las 18hrs\" → title=\"paracetamol\", hour=18; \"borrá la cita con el médico de mañana\" → title=\"cita con el médico\", type=\"appointment\".\n" +
                             "\n" +
                             "FALL:\n" +
                             "- Detección semántica de caída/lesión: \"me caí\", \"me pegué\", \"me duele la cadera\", \"no me puedo levantar\" → FALL.\n" +
@@ -343,6 +348,23 @@ public class NluService {
  "slots":{"message_text":"tengo que tomar un paracetamol cada ocho horas","reminder_title":"tomar un paracetamol","reminder_type":"medication","repeat_pattern":"daily","hour":9,"minute":0},
  "ack_tts":"Listo, te anoto el recordatorio para tomar el paracetamol a las nueve.","clarifying_question":null,"safety_notes":null}""");
 
+            // DELETE_REMINDER examples
+            ObjectNode remDel1U = objectMsg("user", "Eliminame el recordatorio de paracetamol para las 18 horas");
+            ObjectNode remDel1A = objectMsg("assistant", """
+{"intent":"DELETE_REMINDER","confidence":0.98,"needs_confirmation":false,
+ "slots":{"reminder_title":"paracetamol","hour":18,"minute":0,"query_reminder_type":"medication"},
+ "ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode remDel2U = objectMsg("user", "Borrá la cita con el médico de mañana");
+            ObjectNode remDel2A = objectMsg("assistant", """
+{"intent":"DELETE_REMINDER","confidence":0.97,"needs_confirmation":false,
+ "slots":{"reminder_title":"cita con el médico","query_reminder_type":"appointment"},
+ "ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode remDel3U = objectMsg("user", "Cancelá el recordatorio del cumpleaños de jorge");
+            ObjectNode remDel3A = objectMsg("assistant", """
+{"intent":"DELETE_REMINDER","confidence":0.96,"needs_confirmation":false,
+ "slots":{"reminder_title":"cumpleaños de jorge","query_reminder_type":"event"},
+ "ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
             userText.append("texto: ").append(safe(text)).append("\n");
@@ -369,7 +391,7 @@ public class NluService {
                     .add("SPOTIFY_PLAY").add("SPOTIFY_PAUSE").add("SPOTIFY_RESUME")
                     .add("SPOTIFY_NEXT").add("SPOTIFY_PREV")
                     .add("SPOTIFY_SET_VOLUME").add("SPOTIFY_SET_SHUFFLE").add("SPOTIFY_SET_REPEAT")
-                    .add("CREATE_REMINDER").add("QUERY_REMINDERS")
+                    .add("CREATE_REMINDER").add("QUERY_REMINDERS").add("DELETE_REMINDER")
                     .add("CONFIRM_MEDICATION").add("DENY_MEDICATION")
                     .add("FALL")
                     .add("ANSWER").add("CANCEL").add("UNKNOWN");
@@ -497,6 +519,9 @@ public class NluService {
             input.add(rem10U); input.add(rem10A);
             input.add(rem11U); input.add(rem11A);
             input.add(rem12U); input.add(rem12A);  // Completing pending reminder
+            input.add(remDel1U); input.add(remDel1A);  // Delete reminder examples
+            input.add(remDel2U); input.add(remDel2A);
+            input.add(remDel3U); input.add(remDel3A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
