@@ -265,4 +265,31 @@ public class UserService {
                 .filter(dto -> dto != null)
                 .collect(Collectors.toList());
     }
+    
+    /**
+     * Updates any user's profile by ID.
+     * Allows caregivers to update their elderly persons' profiles.
+     *
+     * @param userId The ID of the user to update
+     * @param request The profile update request
+     * @return Updated user DTO
+     */
+    @Transactional
+    public UserDTO updateUserById(Long userId, UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BadRequestException("Usuario no encontrado"));
+
+        // Update fields
+        user.setName(request.getName());
+        user.setPhone(request.getPhone());
+        user.setAddress(request.getAddress());
+        user.setBirthdate(request.getBirthdate());
+        user.setMedicalInfo(request.getMedicalInfo());
+        user.setEmergencyContact(request.getEmergencyContact());
+
+        user = userRepository.save(user);
+        log.info("Profile updated for user ID: {}", userId);
+
+        return UserDTO.fromEntity(user);
+    }
 }

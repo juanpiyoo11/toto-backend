@@ -103,4 +103,14 @@ public class UserController {
     public ResponseEntity<List<UserDTO>> getElderlyUnderCare() {
         return ResponseEntity.ok(userService.getElderlyUnderCare());
     }
+
+    /**
+     * Update any user's profile by ID.
+     * Allows caregivers to update elderly profiles or update their own profile.
+     * PUT /api/user/{userId}
+     */
+    @PutMapping("/{userId}")
+    public ResponseEntity<UserDTO> updateUserById(@PathVariable Long userId, @Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(userService.updateUserById(userId, request));
+    }
 }

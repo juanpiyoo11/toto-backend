@@ -46,6 +46,9 @@ public class User {
     @Column(length = 1000)
     private String medicalInfo;
 
+    @Column(length = 500)
+    private String emergencyContact;
+
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
