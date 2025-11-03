@@ -3,9 +3,8 @@ package ar.edu.uade.toto.toto_backend.service;
 import ar.edu.uade.toto.toto_backend.dto.CareRelationshipDTO;
 import ar.edu.uade.toto.toto_backend.entity.CareRelationship;
 import ar.edu.uade.toto.toto_backend.entity.User;
-import ar.edu.uade.toto.toto_backend.entity.UserRole;
+import ar.edu.uade.toto.toto_backend.exception.BadRequestException;
 import ar.edu.uade.toto.toto_backend.exception.ResourceNotFoundException;
-import ar.edu.uade.toto.toto_backend.exception.UnauthorizedException;
 import ar.edu.uade.toto.toto_backend.repository.CareRelationshipRepository;
 import ar.edu.uade.toto.toto_backend.repository.UserRepository;
 import ar.edu.uade.toto.toto_backend.security.UserPrincipal;
@@ -26,16 +25,16 @@ public class CareRelationshipService {
         User caregiver = userRepository.findById(userPrincipal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Caregiver not found"));
 
-        if (caregiver.getRole() != UserRole.CAREGIVER) {
-            throw new UnauthorizedException("Only caregivers can create care relationships");
+        if (!"CAREGIVER".equals(caregiver.getRole())) {
+            throw new BadRequestException("Only caregivers can create care relationships");
         }
 
         // Verificar que el elderly exista
         User elderly = userRepository.findById(dto.getElderlyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Elderly user not found"));
 
-        if (elderly.getRole() != UserRole.ELDERLY) {
-            throw new IllegalArgumentException("Target user must have ELDERLY role");
+        if (!"ELDERLY".equals(elderly.getRole())) {
+            throw new BadRequestException("Target user must have ELDERLY role");
         }
 
         // Crear la relación
@@ -55,7 +54,7 @@ public class CareRelationshipService {
 
         // Verificar que el usuario actual sea el caregiver de esta relación
         if (!relationship.getCaregiverId().equals(userPrincipal.getId())) {
-            throw new UnauthorizedException("You can only delete your own care relationships");
+            throw new BadRequestException("You can only delete your own care relationships");
         }
 
         careRelationshipRepository.delete(relationship);
