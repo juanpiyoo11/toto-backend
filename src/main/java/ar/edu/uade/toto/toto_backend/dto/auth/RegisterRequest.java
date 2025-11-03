@@ -1,21 +1,17 @@
 package ar.edu.uade.toto.toto_backend.dto.auth;
 
-import jakarta.validation.constraints.Email;
+import ar.edu.uade.toto.toto_backend.validation.ValidateElderlyCredentials;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 @Data
+@ValidateElderlyCredentials
 public class RegisterRequest {
     @NotBlank(message = "El nombre es obligatorio")
     private String name;
 
-    @NotBlank(message = "El email es obligatorio")
-    @Email(message = "Formato de email inválido")
+    // Email y password validados por @ValidateElderlyCredentials según el rol
     private String email;
-
-    @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
     private String password;
 
     private String phone;

@@ -52,7 +52,8 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail())) {
+        // Validar email solo si no es null
+        if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("El email ya está registrado");
         }
 
@@ -60,10 +61,22 @@ public class AuthService {
             throw new BadRequestException("Rol inválido. Debe ser ELDERLY o CAREGIVER");
         }
 
+        // Validaciones específicas por rol
+        if (request.getRole().equals("CAREGIVER")) {
+            if (request.getEmail() == null || request.getPassword() == null) {
+                throw new BadRequestException("CAREGIVER debe tener email y contraseña");
+            }
+        }
+
         User user = new User();
         user.setName(request.getName());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        
+        // Solo encriptar password si no es null
+        if (request.getPassword() != null) {
+            user.setPassword(passwordEncoder.encode(request.getPassword()));
+        }
+        
         user.setPhone(request.getPhone());
         user.setRole(request.getRole());
         user.setAddress(request.getAddress());
@@ -72,13 +85,19 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        // Solo generar tokens si es un CAREGIVER (que tiene credenciales)
+        if (request.getRole().equals("CAREGIVER") && request.getEmail() != null && request.getPassword() != null) {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
 
-        String accessToken = tokenProvider.generateAccessToken(authentication);
-        String refreshToken = tokenProvider.generateRefreshToken(user.getId());
+            String accessToken = tokenProvider.generateAccessToken(authentication);
+            String refreshToken = tokenProvider.generateRefreshToken(user.getId());
 
-        return new LoginResponse(accessToken, refreshToken, UserDTO.fromEntity(user));
+            return new LoginResponse(accessToken, refreshToken, UserDTO.fromEntity(user));
+        } else {
+            // Para ELDERLY sin credenciales, devolver respuesta sin tokens
+            return new LoginResponse(null, null, UserDTO.fromEntity(user));
+        }
     }
 
     @Transactional

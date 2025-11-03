@@ -1,0 +1,63 @@
+package ar.edu.uade.toto.toto_backend.service;
+
+import ar.edu.uade.toto.toto_backend.dto.CareRelationshipDTO;
+import ar.edu.uade.toto.toto_backend.entity.CareRelationship;
+import ar.edu.uade.toto.toto_backend.entity.User;
+import ar.edu.uade.toto.toto_backend.entity.UserRole;
+import ar.edu.uade.toto.toto_backend.exception.ResourceNotFoundException;
+import ar.edu.uade.toto.toto_backend.exception.UnauthorizedException;
+import ar.edu.uade.toto.toto_backend.repository.CareRelationshipRepository;
+import ar.edu.uade.toto.toto_backend.repository.UserRepository;
+import ar.edu.uade.toto.toto_backend.security.UserPrincipal;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class CareRelationshipService {
+
+    private final CareRelationshipRepository careRelationshipRepository;
+    private final UserRepository userRepository;
+
+    @Transactional
+    public CareRelationshipDTO createRelationship(CareRelationshipDTO dto, UserPrincipal userPrincipal) {
+        // Verificar que el usuario actual sea un CAREGIVER
+        User caregiver = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Caregiver not found"));
+
+        if (caregiver.getRole() != UserRole.CAREGIVER) {
+            throw new UnauthorizedException("Only caregivers can create care relationships");
+        }
+
+        // Verificar que el elderly exista
+        User elderly = userRepository.findById(dto.getElderlyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Elderly user not found"));
+
+        if (elderly.getRole() != UserRole.ELDERLY) {
+            throw new IllegalArgumentException("Target user must have ELDERLY role");
+        }
+
+        // Crear la relación
+        CareRelationship relationship = new CareRelationship();
+        relationship.setCaregiverId(userPrincipal.getId());
+        relationship.setElderlyId(dto.getElderlyId());
+        relationship.setRelationship(dto.getRelationship() != null ? dto.getRelationship() : "Cuidador");
+
+        CareRelationship saved = careRelationshipRepository.save(relationship);
+        return CareRelationshipDTO.fromEntity(saved);
+    }
+
+    @Transactional
+    public void deleteRelationship(Long id, UserPrincipal userPrincipal) {
+        CareRelationship relationship = careRelationshipRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Care relationship not found"));
+
+        // Verificar que el usuario actual sea el caregiver de esta relación
+        if (!relationship.getCaregiverId().equals(userPrincipal.getId())) {
+            throw new UnauthorizedException("You can only delete your own care relationships");
+        }
+
+        careRelationshipRepository.delete(relationship);
+    }
+}
