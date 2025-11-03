@@ -43,47 +43,20 @@ public class PendingReminderDTO {
         
         switch (reminder.getReminderType()) {
             case MEDICATION:
-                msg.append("Acordate de tomar ");
-                if (reminder.getDosage() != null && !reminder.getDosage().isEmpty()) {
-                    msg.append(reminder.getDosage()).append(" de ");
-                }
+                msg.append("Recordatorio de medicamento: ");
                 msg.append(reminder.getTitle());
+                msg.append(". ¿Ya lo tomaste?");
                 break;
                 
             case APPOINTMENT:
-                msg.append("Acordate que tenés ");
+                msg.append("Recordatorio de cita: ");
                 msg.append(reminder.getTitle());
-                
-                LocalDateTime eventTime = reminder.getReminderTime();
-                int hour = eventTime.getHour();
-                String timeStr = hour + (eventTime.getMinute() > 0 ? " y " + eventTime.getMinute() : "");
-                msg.append(" a las ").append(timeStr);
-                
-                if (reminder.getDoctor() != null && !reminder.getDoctor().isEmpty()) {
-                    msg.append(" con ").append(reminder.getDoctor());
-                }
-                if (reminder.getLocation() != null && !reminder.getLocation().isEmpty()) {
-                    msg.append(" en ").append(reminder.getLocation());
-                }
                 break;
                 
             case EVENT:
-                msg.append("Acordate que tenés ");
+                msg.append("Recordatorio de evento: ");
                 msg.append(reminder.getTitle());
-                
-                eventTime = reminder.getReminderTime();
-                hour = eventTime.getHour();
-                timeStr = hour + (eventTime.getMinute() > 0 ? " y " + eventTime.getMinute() : "");
-                msg.append(" a las ").append(timeStr);
-                
-                if (reminder.getLocation() != null && !reminder.getLocation().isEmpty()) {
-                    msg.append(" en ").append(reminder.getLocation());
-                }
                 break;
-        }
-        
-        if (reminder.getDescription() != null && !reminder.getDescription().isEmpty()) {
-            msg.append(". ").append(reminder.getDescription());
         }
         
         return msg.toString();
