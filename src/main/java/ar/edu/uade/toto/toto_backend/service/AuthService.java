@@ -52,6 +52,19 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
+        // Log detallado para debug
+        System.out.println("=== RegisterRequest RECIBIDO ===");
+        System.out.println("Name: '" + request.getName() + "'");
+        System.out.println("Email: '" + request.getEmail() + "'");
+        System.out.println("Password: " + (request.getPassword() != null ? "[SET]" : "[NULL]"));
+        System.out.println("Role: '" + request.getRole() + "'");
+        System.out.println("Phone: '" + request.getPhone() + "'");
+        System.out.println("Address: '" + request.getAddress() + "'");
+        System.out.println("Birthdate: '" + request.getBirthdate() + "'");
+        System.out.println("MedicalInfo: '" + request.getMedicalInfo() + "'");
+        System.out.println("MedicalInfo length: " + (request.getMedicalInfo() != null ? request.getMedicalInfo().length() : "NULL"));
+        System.out.println("================================");
+        
         // Validar email solo si no es null
         if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("El email ya está registrado");
@@ -84,6 +97,13 @@ public class AuthService {
         user.setMedicalInfo(request.getMedicalInfo());
 
         user = userRepository.save(user);
+
+        // Log después de guardar
+        System.out.println("=== USUARIO GUARDADO ===");
+        System.out.println("ID: " + user.getId());
+        System.out.println("Name: '" + user.getName() + "'");
+        System.out.println("MedicalInfo guardado: '" + user.getMedicalInfo() + "'");
+        System.out.println("========================");
 
         // Solo generar tokens si es un CAREGIVER (que tiene credenciales)
         if (request.getRole().equals("CAREGIVER") && request.getEmail() != null && request.getPassword() != null) {
