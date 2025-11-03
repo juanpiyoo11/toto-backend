@@ -232,4 +232,37 @@ public class UserService {
                 .filter(dto -> dto != null)
                 .collect(Collectors.toList());
     }
+    
+    /**
+     * Get elderly persons associated with the current caregiver.
+     *
+     * @return List of elderly persons under care
+     */
+    public List<UserDTO> getElderlyUnderCare() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        UserPrincipal userPrincipal = (UserPrincipal) authentication.getPrincipal();
+        
+        // Verify user is a caregiver
+        User user = userRepository.findById(userPrincipal.getId())
+                .orElseThrow(() -> new BadRequestException("Usuario no encontrado"));
+        
+        if (!"CAREGIVER".equals(user.getRole())) {
+            throw new BadRequestException("Solo los cuidadores pueden acceder a esta información");
+        }
+        
+        // Get all care relationships where current user is the caregiver
+        List<CareRelationship> relationships = careRelationshipRepository.findByCaregiverId(userPrincipal.getId());
+        
+        // Map to DTOs with elderly information
+        return relationships.stream()
+                .map(rel -> {
+                    User elderly = userRepository.findById(rel.getElderlyId())
+                            .orElse(null);
+                    if (elderly == null) return null;
+                    
+                    return UserDTO.fromEntity(elderly);
+                })
+                .filter(dto -> dto != null)
+                .collect(Collectors.toList());
+    }
 }

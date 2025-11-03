@@ -93,4 +93,14 @@ public class UserController {
     public ResponseEntity<List<EmergencyContactDTO>> getEmergencyContacts() {
         return ResponseEntity.ok(userService.getEmergencyContacts());
     }
+    
+    /**
+     * Get elderly persons under care of current caregiver.
+     * Only accessible by users with CAREGIVER role.
+     * GET /api/user/elderly-under-care
+     */
+    @GetMapping("/elderly-under-care")
+    public ResponseEntity<List<UserDTO>> getElderlyUnderCare() {
+        return ResponseEntity.ok(userService.getElderlyUnderCare());
+    }
 }
