@@ -19,7 +19,6 @@ public class UserDTO {
     private String address;
     private String birthdate;
     private String medicalInfo;
-    private String emergencyContact;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -33,7 +32,6 @@ public class UserDTO {
                 user.getAddress(),
                 user.getBirthdate(),
                 user.getMedicalInfo(),
-                user.getEmergencyContact(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
