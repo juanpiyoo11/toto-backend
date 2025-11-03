@@ -80,6 +80,7 @@ public class NluService {
                             "CALL, SET_ALARM, QUERY_TIME, QUERY_DATE, SEND_MESSAGE, " +
                             "SPOTIFY_PLAY, SPOTIFY_PAUSE, SPOTIFY_RESUME, SPOTIFY_NEXT, SPOTIFY_PREV, " +
                             "SPOTIFY_SET_VOLUME, SPOTIFY_SET_SHUFFLE, SPOTIFY_SET_REPEAT, " +
+                            "CREATE_REMINDER, QUERY_REMINDERS, CONFIRM_MEDICATION, DENY_MEDICATION, " +
                             "FALL, " +
                             "ANSWER, CANCEL, UNKNOWN.\n" +
                             "\n" +
@@ -107,6 +108,13 @@ public class NluService {
                             "\"subí el volumen\" → \"up\"; \"bajá el volumen\" → \"down\".\n" +
                             "- Shuffle: \"activá/sacá el aleatorio\" → SPOTIFY_SET_SHUFFLE con slots.message_text=\"on\"/\"off\".\n" +
                             "- Repeat: \"repetir tema\" → SPOTIFY_SET_REPEAT con slots.message_text=\"track\"; \"repetir lista\" → \"context\"; \"sacar repeat\" → \"off\".\n" +
+                            "\n" +
+                            "Recordatorios:\n" +
+                            "- \"recordame/acordame/anotame que\" + descripción → CREATE_REMINDER. Guardá descripción completa en slots.message_text.\n" +
+                            "- Si falta hora: needs_confirmation=true, clarifying_question=\"¿A qué hora querés que te lo recuerde?\".\n" +
+                            "- \"qué medicamentos/remedios tengo\", \"qué tengo que tomar\", \"mis recordatorios\" → QUERY_REMINDERS.\n" +
+                            "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
+                            "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
                             "\n" +
                             "FALL:\n" +
                             "- Detección semántica de caída/lesión: \"me caí\", \"me pegué\", \"me duele la cadera\", \"no me puedo levantar\" → FALL.\n" +
@@ -239,18 +247,34 @@ public class NluService {
             ObjectNode fall3A = objectMsg("assistant", """
 {"intent":"FALL","confidence":0.97,"needs_confirmation":false,
  "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"possible fall"}""");
-            ObjectNode fall4U = objectMsg("user", "ayuda");
-            ObjectNode fall4A = objectMsg("assistant", """
-{"intent":"FALL","confidence":0.98,"needs_confirmation":false,
- "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"help request"}""");
-            ObjectNode fall5U = objectMsg("user", "me duele mucho");
-            ObjectNode fall5A = objectMsg("assistant", """
-{"intent":"FALL","confidence":0.96,"needs_confirmation":false,
- "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"pain reported"}""");
-            ObjectNode fall6U = objectMsg("user", "no estoy bien");
-            ObjectNode fall6A = objectMsg("assistant", """
-{"intent":"FALL","confidence":0.95,"needs_confirmation":false,
- "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"health concern"}""");
+
+            // ===== Few-shots REMINDERS =====
+            ObjectNode rem1U = objectMsg("user", "Recordame que mañana tengo turno médico");
+            ObjectNode rem1A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.97,"needs_confirmation":true,
+ "slots":{"message_text":"mañana tengo turno médico"},
+ "ack_tts":null,"clarifying_question":"¿A qué hora querés que te lo recuerde?","safety_notes":null}""");
+            ObjectNode rem2U = objectMsg("user", "Anotame que tengo que tomar la aspirina a las 3 de la tarde");
+            ObjectNode rem2A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
+ "slots":{"message_text":"tengo que tomar la aspirina a las 3 de la tarde","hour":15,"minute":0},
+ "ack_tts":"Listo, te anoto el recordatorio.","clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy");
+            ObjectNode rem3A = objectMsg("assistant", """
+{"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem4U = objectMsg("user", "Mis recordatorios");
+            ObjectNode rem4A = objectMsg("assistant", """
+{"intent":"QUERY_REMINDERS","confidence":0.97,"needs_confirmation":false,
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem5U = objectMsg("user", "Sí, ya la tomé");
+            ObjectNode rem5A = objectMsg("assistant", """
+{"intent":"CONFIRM_MEDICATION","confidence":0.98,"needs_confirmation":false,
+ "slots":{},"ack_tts":"Perfecto, lo registro.","clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem6U = objectMsg("user", "No, todavía no");
+            ObjectNode rem6A = objectMsg("assistant", """
+{"intent":"DENY_MEDICATION","confidence":0.96,"needs_confirmation":false,
+ "slots":{},"ack_tts":"Bueno, avisame cuando la tomes.","clarifying_question":null,"safety_notes":null}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -278,7 +302,9 @@ public class NluService {
                     .add("SPOTIFY_PLAY").add("SPOTIFY_PAUSE").add("SPOTIFY_RESUME")
                     .add("SPOTIFY_NEXT").add("SPOTIFY_PREV")
                     .add("SPOTIFY_SET_VOLUME").add("SPOTIFY_SET_SHUFFLE").add("SPOTIFY_SET_REPEAT")
-                    .add("FALL")                 // <-- NUEVO
+                    .add("CREATE_REMINDER").add("QUERY_REMINDERS")
+                    .add("CONFIRM_MEDICATION").add("DENY_MEDICATION")
+                    .add("FALL")
                     .add("ANSWER").add("CANCEL").add("UNKNOWN");
 
             props.putObject("confidence").put("type","number").put("minimum",0.0).put("maximum",1.0);
@@ -371,9 +397,14 @@ public class NluService {
             input.add(fall1U); input.add(fall1A);
             input.add(fall2U); input.add(fall2A);
             input.add(fall3U); input.add(fall3A);
-            input.add(fall4U); input.add(fall4A);
-            input.add(fall5U); input.add(fall5A);
-            input.add(fall6U); input.add(fall6A);
+
+            // Reminder shots
+            input.add(rem1U); input.add(rem1A);
+            input.add(rem2U); input.add(rem2A);
+            input.add(rem3U); input.add(rem3A);
+            input.add(rem4U); input.add(rem4A);
+            input.add(rem5U); input.add(rem5A);
+            input.add(rem6U); input.add(rem6A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
@@ -609,29 +640,17 @@ public class NluService {
     private static NluRouteResponse guardrailFall(String norm) {
         if (norm == null || norm.isBlank()) return null;
 
-        // Detectar contexto hipotético (NO es emergencia real)
-        boolean hypothetical = norm.matches(".*\\b(si|cuando|que hago si|como hago|que hacer si|que tengo que hacer)\\b.*");
-        if (hypothetical) return null;
-
-        // Patrones de caída
         boolean saidFall = norm.matches(".*\\b(me cai|me ca[ií]do|me tropec[eé]|me desmaye|me pegue|me golpee)\\b.*");
-        
-        // Patrones de dolor o incapacidad
-        boolean pain = norm.matches(".*\\b(me duele|me lastime|me fracture|me rompi|me torci|no puedo levantarme|no puedo pararme|no me puedo mover)\\b.*");
-        
-        // Patrones de estado general
-        boolean badState = norm.matches(".*\\b(no estoy bien|no esta bien|estoy mal)\\b.*");
-        
-        // Patrones de pedido de ayuda explícito
-        boolean helpRequest = norm.matches(".*\\b(ayuda|ayudame|ayudame|auxilio|emergencia|ambulancia|doctor|medico)\\b.*");
+        boolean pain     = norm.matches(".*\\b(me duele|me lastime|me fracture|me rompi|me torci|no puedo levantarme)\\b.*");
+        boolean hypothetical = norm.matches(".*\\b(si|cuando)\\s+me\\s+(caigo|caiga|llego a caer)\\b.*");
 
-        if (saidFall || pain || badState || helpRequest) {
+        if (!hypothetical && (saidFall || pain)) {
             NluRouteResponse r = new NluRouteResponse();
             r.intent = "FALL";
             r.confidence = 0.96;
             r.needs_confirmation = false;
             r.ack_tts = null;
-            r.safety_notes = "possible fall or help request";
+            r.safety_notes = "possible fall";
             r.slots = new NluRouteResponse.Slots();
             return r;
         }

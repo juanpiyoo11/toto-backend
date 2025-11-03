@@ -13,4 +13,7 @@ public interface HistoryEventRepository extends JpaRepository<HistoryEvent, Long
 
     List<HistoryEvent> findByUserIdAndTimestampBetweenOrderByTimestampDesc(Long userId, LocalDateTime start,
             LocalDateTime end);
+    
+    List<HistoryEvent> findByUserIdAndEventTypeAndTimestampBetween(Long userId, String eventType, 
+            LocalDateTime start, LocalDateTime end);
 }

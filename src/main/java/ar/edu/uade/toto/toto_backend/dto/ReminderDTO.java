@@ -19,6 +19,9 @@ public class ReminderDTO {
     @NotNull(message = "El ID del adulto mayor es obligatorio")
     private Long elderlyId;
 
+    @NotNull(message = "El tipo de recordatorio es obligatorio")
+    private Reminder.ReminderType reminderType;
+
     @NotBlank(message = "El título es obligatorio")
     private String title;
 
@@ -30,6 +33,16 @@ public class ReminderDTO {
 
     private String repeatPattern; // DAILY, WEEKLY, MONTHLY, NONE
 
+    // Medication-specific
+    private String dosage;
+
+    // Appointment-specific
+    private String doctor;
+
+    // Appointment and Event specific
+    private String location;
+    private Integer leadTimeMinutes; // Default: 30 for appointments/events
+
     private Boolean active = true;
 
     private LocalDateTime createdAt;
@@ -39,10 +52,15 @@ public class ReminderDTO {
         return new ReminderDTO(
                 reminder.getId(),
                 reminder.getElderlyId(),
+                reminder.getReminderType(),
                 reminder.getTitle(),
                 reminder.getDescription(),
                 reminder.getReminderTime(),
                 reminder.getRepeatPattern(),
+                reminder.getDosage(),
+                reminder.getDoctor(),
+                reminder.getLocation(),
+                reminder.getLeadTimeMinutes(),
                 reminder.getActive(),
                 reminder.getCreatedAt(),
                 reminder.getUpdatedAt());
@@ -52,10 +70,22 @@ public class ReminderDTO {
         Reminder reminder = new Reminder();
         reminder.setId(this.id);
         reminder.setElderlyId(this.elderlyId);
+        reminder.setReminderType(this.reminderType != null ? this.reminderType : Reminder.ReminderType.MEDICATION);
         reminder.setTitle(this.title);
         reminder.setDescription(this.description);
         reminder.setReminderTime(this.reminderTime);
         reminder.setRepeatPattern(this.repeatPattern);
+        reminder.setDosage(this.dosage);
+        reminder.setDoctor(this.doctor);
+        reminder.setLocation(this.location);
+        
+        // Set default lead time for appointments and events
+        if (this.reminderType == Reminder.ReminderType.APPOINTMENT || this.reminderType == Reminder.ReminderType.EVENT) {
+            reminder.setLeadTimeMinutes(this.leadTimeMinutes != null ? this.leadTimeMinutes : 30);
+        } else {
+            reminder.setLeadTimeMinutes(null);
+        }
+        
         reminder.setActive(this.active != null ? this.active : true);
         return reminder;
     }
