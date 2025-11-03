@@ -117,6 +117,11 @@ public class NluService {
                             "  * slots.reminder_type: clasifica en \"medication\" (remedios/pastillas/tomar medicamentos), \"appointment\" (turnos médicos/citas/dentista/doctor), o \"event\" (otros eventos/tareas generales).\n" +
                             "  * slots.repeat_pattern: determina frecuencia. Valores: \"once\" (única vez, ej: \"mañana tengo turno\"), \"daily\" (todos los días/diario, ej: \"todos los días a las 8\"), \"weekly\" (todas las semanas), \"monthly\" (mensual). Default: \"once\" si no se especifica.\n" +
                             "  * slots.hour y slots.minute: extraé SOLO si hay una hora ESPECÍFICA mencionada (\"a las 3\", \"a las 15:30\", \"8 de la mañana\"). Si dice \"cada 8 horas\" o \"cada X horas\" sin mencionar hora de inicio, NO llenes hour/minute.\n" +
+                            "- CONTEXTO CONVERSACIONAL: Si hay 'contexto' con pending_reminder_* y awaiting_clarification='hour_for_reminder':\n" +
+                            "  * El usuario está respondiendo la hora para completar el recordatorio pendiente.\n" +
+                            "  * Extraé hour/minute de la respuesta actual.\n" +
+                            "  * Usá pending_reminder_message, pending_reminder_title, pending_reminder_type, pending_reminder_pattern del contexto.\n" +
+                            "  * Devolvé CREATE_REMINDER con needs_confirmation=false, los datos del pending_reminder + la hora extraída.\n" +
                             "- Si falta hora específica (hour/minute son null): needs_confirmation=true, ack_tts=null.\n" +
                             "  * Para medication: clarifying_question=\"¿A qué hora tenés que tomar el medicamento?\"\n" +
                             "  * Para appointment: clarifying_question=\"¿A qué hora es el turno?\"\n" +
@@ -312,6 +317,13 @@ public class NluService {
 {"intent":"CREATE_REMINDER","confidence":0.96,"needs_confirmation":true,
  "slots":{"message_text":"tengo un partido de fútbol","reminder_title":"partido de fútbol","reminder_type":"event","repeat_pattern":"once","hour":null,"minute":null},
  "ack_tts":null,"clarifying_question":"¿A qué hora es?","safety_notes":null}""");
+            
+            // Example: completing a pending reminder with context
+            ObjectNode rem12U = objectMsg("user", "a las nueve\ncontexto: {\"pending_reminder_message\":\"tengo que tomar un paracetamol cada ocho horas\",\"pending_reminder_title\":\"tomar un paracetamol\",\"pending_reminder_type\":\"medication\",\"pending_reminder_pattern\":\"daily\",\"awaiting_clarification\":\"hour_for_reminder\"}");
+            ObjectNode rem12A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
+ "slots":{"message_text":"tengo que tomar un paracetamol cada ocho horas","reminder_title":"tomar un paracetamol","reminder_type":"medication","repeat_pattern":"daily","hour":9,"minute":0},
+ "ack_tts":"Listo, te anoto el recordatorio para tomar el paracetamol a las nueve.","clarifying_question":null,"safety_notes":null}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -460,6 +472,7 @@ public class NluService {
             input.add(rem9U); input.add(rem9A);
             input.add(rem10U); input.add(rem10A);
             input.add(rem11U); input.add(rem11A);
+            input.add(rem12U); input.add(rem12A);  // Completing pending reminder
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));

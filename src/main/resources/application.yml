@@ -42,8 +42,10 @@ spotify:
 # JWT Configuration
 jwt:
   secret: ${JWT_SECRET:changeme-this-is-a-very-long-secret-key-for-jwt-signing-minimum-512-bits}
-  access-token-expiry-ms: 315360000000  # 10 years (for elderly device, never expires in practice)
-  refresh-token-expiry-ms: 315360000000  # 10 years
+  # IMPORTANT: Tokens should NEVER expire for elderly devices
+  # Set to effectively infinite: 100 years in milliseconds
+  access-token-expiry-ms: ${JWT_ACCESS_TOKEN_EXPIRY_MS:3153600000000}  # 100 years (never expires)
+  refresh-token-expiry-ms: ${JWT_REFRESH_TOKEN_EXPIRY_MS:3153600000000}  # 100 years (never expires)
   issuer: toto-backend
 
 # Database Configuration
