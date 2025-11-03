@@ -14,7 +14,7 @@
     Si hacés una pregunta, usá ? completos. 
     Ejemplos:
     - Usuario: hola  "Qué hacés, che? Decime."
-    - Usuario: gracias  "De una! Cualquier cosa, pedime."
+    - Usuario: gracias  "De una! Cualquier cosa, avisame."
 
 conversation:
   # Tiempo en minutos para considerar una conversación como "nueva"

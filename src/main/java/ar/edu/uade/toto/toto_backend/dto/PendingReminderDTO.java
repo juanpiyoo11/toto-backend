@@ -51,11 +51,33 @@ public class PendingReminderDTO {
             case APPOINTMENT:
                 msg.append("Recordatorio de cita: ");
                 msg.append(reminder.getTitle());
+                
+                // Add time for appointments
+                LocalDateTime eventTime = reminder.getReminderTime();
+                if (eventTime != null) {
+                    int hour = eventTime.getHour();
+                    int minute = eventTime.getMinute();
+                    msg.append(" a las ").append(hour);
+                    if (minute > 0) {
+                        msg.append(" y ").append(minute);
+                    }
+                }
                 break;
                 
             case EVENT:
                 msg.append("Recordatorio de evento: ");
                 msg.append(reminder.getTitle());
+                
+                // Add time for events
+                eventTime = reminder.getReminderTime();
+                if (eventTime != null) {
+                    int hour = eventTime.getHour();
+                    int minute = eventTime.getMinute();
+                    msg.append(" a las ").append(hour);
+                    if (minute > 0) {
+                        msg.append(" y ").append(minute);
+                    }
+                }
                 break;
         }
         
