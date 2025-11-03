@@ -63,6 +63,8 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        jdbc:
+          time_zone: America/Argentina/Buenos_Aires
   application:
     name: toto
   servlet:
@@ -80,3 +82,6 @@ dev:
 
 server:
   port: ${PORT:8080}
+  # Set default timezone for the entire application
+  timezone: America/Argentina/Buenos_Aires
+
