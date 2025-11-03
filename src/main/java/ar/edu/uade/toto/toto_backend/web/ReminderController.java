@@ -107,14 +107,16 @@ public class ReminderController {
     }
 
     /**
-     * Get today's reminders for an elderly person (for voice queries like "¿Qué medicamentos tengo hoy?").
+     * Get reminders for an elderly person for a specific date (for voice queries like "¿Qué medicamentos tengo hoy?").
      * @param elderlyId The elderly person's ID
      * @param type Optional filter by reminder type (medication, appointment, event)
+     * @param date Optional date in ISO format (YYYY-MM-DD), defaults to today
      */
     @GetMapping("/today")
     public ResponseEntity<List<ReminderDTO>> getTodayReminders(
             @RequestParam Long elderlyId,
-            @RequestParam(required = false) String type) {
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String date) {
         
         Reminder.ReminderType reminderType = null;
         if (type != null && !type.isEmpty()) {
@@ -125,7 +127,16 @@ public class ReminderController {
             }
         }
         
-        return ResponseEntity.ok(reminderService.getTodayReminders(elderlyId, reminderType));
+        java.time.LocalDateTime targetDate = null;
+        if (date != null && !date.isEmpty()) {
+            try {
+                targetDate = java.time.LocalDate.parse(date).atStartOfDay();
+            } catch (Exception e) {
+                // Invalid date format, use today
+            }
+        }
+        
+        return ResponseEntity.ok(reminderService.getTodayReminders(elderlyId, reminderType, targetDate));
     }
 
     /**

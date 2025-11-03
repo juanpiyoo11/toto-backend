@@ -138,6 +138,12 @@ public class NluService {
                             "    - \"appointment\" si pregunta por citas/turnos/consultas médicas.\n" +
                             "    - \"event\" si pregunta por eventos/actividades.\n" +
                             "    - null si pregunta genéricamente por \"recordatorios\" o \"qué tengo\".\n" +
+                            "  * slots.datetime_iso: extrae la fecha consultada en formato ISO (YYYY-MM-DD):\n" +
+                            "    - Si dice \"hoy\" o no especifica fecha → usa la fecha actual (now_epoch_ms).\n" +
+                            "    - Si dice \"mañana\" → fecha actual + 1 día.\n" +
+                            "    - Si dice \"pasado mañana\" → fecha actual + 2 días.\n" +
+                            "    - Si menciona día de la semana (\"el lunes\", \"el martes\") → calcula la fecha del próximo día.\n" +
+                            "    - Si menciona fecha específica → convierte a ISO.\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
                             "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
                             "- \"eliminame/borrá/sacá/cancelá el recordatorio\" + descripción → DELETE_REMINDER.\n" +
@@ -305,6 +311,10 @@ public class NluService {
             ObjectNode rem4cA = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
  "slots":{"query_reminder_type":"appointment"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem4dU = objectMsg("user", "Qué medicamentos tengo que tomar mañana");
+            ObjectNode rem4dA = objectMsg("assistant", """
+{"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
+ "slots":{"query_reminder_type":"medication","datetime_iso":"2025-11-04"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode rem5U = objectMsg("user", "Sí, ya la tomé");
             ObjectNode rem5A = objectMsg("assistant", """
 {"intent":"CONFIRM_MEDICATION","confidence":0.98,"needs_confirmation":false,
@@ -511,6 +521,7 @@ public class NluService {
             input.add(rem4U); input.add(rem4A);
             input.add(rem4bU); input.add(rem4bA);
             input.add(rem4cU); input.add(rem4cA);
+            input.add(rem4dU); input.add(rem4dA);
             input.add(rem5U); input.add(rem5A);
             input.add(rem6U); input.add(rem6A);
             input.add(rem7U); input.add(rem7A);
