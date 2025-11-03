@@ -145,7 +145,9 @@ public class NluService {
                             "    - Si menciona día de la semana (\"el lunes\", \"el martes\") → calcula la fecha del próximo día.\n" +
                             "    - Si menciona fecha específica → convierte a ISO.\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
+                            "  * IMPORTANTE: Si el contexto indica awaiting_medication_confirmation=true, cualquier respuesta afirmativa corta (\"sí\", \"ya\", \"listo\", \"ok\") debe ser CONFIRM_MEDICATION.\n" +
                             "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
+                            "  * IMPORTANTE: Si el contexto indica awaiting_medication_confirmation=true, cualquier respuesta negativa corta (\"no\", \"todavía no\", \"después\", \"ahora no\") debe ser DENY_MEDICATION.\n" +
                             "- \"eliminame/borrá/sacá/cancelá el recordatorio\" + descripción → DELETE_REMINDER.\n" +
                             "  * slots.reminder_title: extrae el título/descripción del recordatorio a eliminar (ej: \"paracetamol\", \"cita con el médico\", \"cumpleaños de jorge\").\n" +
                             "  * slots.hour y slots.minute: si menciona hora específica (\"para las 18\", \"de las 6\").\n" +
