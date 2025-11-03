@@ -307,7 +307,9 @@ public class UserService {
         log.info("Creating elderly user: {}", request.getName());
 
         // Get current authenticated user (caregiver)
-        User caregiver = getCurrentUser();
+        UserDTO caregiverDTO = getCurrentUser();
+        User caregiver = userRepository.findById(caregiverDTO.getId())
+                .orElseThrow(() -> new BadRequestException("Caregiver no encontrado"));
 
         User elderly = new User();
         elderly.setName(request.getName());
@@ -357,16 +359,16 @@ public class UserService {
      * @return Map with the access token
      */
     public Map<String, String> getElderlyAccessToken(Long elderlyId) {
-        User currentUser = getCurrentUser();
+        UserDTO currentUserDTO = getCurrentUser();
         
         // Verify that the elderly exists
-        User elderly = userRepository.findById(elderlyId)
-                .orElseThrow(() -> new BadRequestException("Adulto mayor no encontrado"));
+        if (!userRepository.existsById(elderlyId)) {
+            throw new BadRequestException("Adulto mayor no encontrado");
+        }
         
         // Verify that current user is a caregiver of this elderly
         boolean hasRelationship = careRelationshipRepository
-                .findByCaregiverIdAndElderlyId(currentUser.getId(), elderlyId)
-                .isPresent();
+                .existsByCaregiverIdAndElderlyId(currentUserDTO.getId(), elderlyId);
         
         if (!hasRelationship) {
             throw new BadRequestException("No tienes permiso para ver el token de este adulto mayor");
