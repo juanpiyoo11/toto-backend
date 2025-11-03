@@ -409,6 +409,9 @@ public class NluService {
             
             ArrayNode tRepeatPattern = slotsProps.putObject("repeat_pattern").putArray("type");
             tRepeatPattern.add("string").add("null");
+            
+            ArrayNode tQueryReminderType = slotsProps.putObject("query_reminder_type").putArray("type");
+            tQueryReminderType.add("string").add("null");
 
             ArrayNode slotsReq = slots.putArray("required");
             slotsReq.add("contact_query");
@@ -419,6 +422,7 @@ public class NluService {
             slotsReq.add("reminder_title");
             slotsReq.add("reminder_type");
             slotsReq.add("repeat_pattern");
+            slotsReq.add("query_reminder_type");
 
             ArrayNode tClar = props.putObject("clarifying_question").putArray("type");
             tClar.add("string").add("null");
