@@ -291,4 +291,31 @@ public class UserService {
 
         return UserDTO.fromEntity(user);
     }
+
+    /**
+     * Create a new elderly user without login credentials.
+     * Only accessible by authenticated caregivers.
+     *
+     * @param request User profile data
+     * @return Created user DTO
+     */
+    @Transactional
+    public UserDTO createElderly(UpdateProfileRequest request) {
+        log.info("Creating elderly user: {}", request.getName());
+
+        User elderly = new User();
+        elderly.setName(request.getName());
+        elderly.setPhone(request.getPhone());
+        elderly.setAddress(request.getAddress());
+        elderly.setBirthdate(request.getBirthdate());
+        elderly.setMedicalInfo(request.getMedicalInfo());
+        elderly.setRole("ELDERLY");
+        elderly.setEmail(null);
+        elderly.setPassword(null);
+
+        elderly = userRepository.save(elderly);
+        log.info("Elderly user created with ID: {}", elderly.getId());
+
+        return UserDTO.fromEntity(elderly);
+    }
 }

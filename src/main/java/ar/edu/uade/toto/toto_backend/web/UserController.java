@@ -113,4 +113,14 @@ public class UserController {
     public ResponseEntity<UserDTO> updateUserById(@PathVariable Long userId, @Valid @RequestBody UpdateProfileRequest request) {
         return ResponseEntity.ok(userService.updateUserById(userId, request));
     }
+
+    /**
+     * Create a new elderly user (without login credentials).
+     * Only accessible by authenticated caregivers.
+     * POST /api/user/elderly
+     */
+    @PostMapping("/elderly")
+    public ResponseEntity<UserDTO> createElderly(@Valid @RequestBody UpdateProfileRequest request) {
+        return ResponseEntity.ok(userService.createElderly(request));
+    }
 }
