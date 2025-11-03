@@ -102,20 +102,55 @@ public class ReminderService {
     /**
      * Get active reminders for a specific elderly person for today.
      * Useful for voice queries like "¿Qué medicamentos tengo hoy?"
+     * This method considers:
+     * - Reminders scheduled for today
+     * - Recurring reminders (daily, weekly, monthly, yearly) that apply today
      * @param elderlyId The elderly person's ID
      * @param reminderType Optional filter by reminder type (MEDICATION, APPOINTMENT, EVENT)
      */
     @Transactional(readOnly = true)
     public List<ReminderDTO> getTodayReminders(Long elderlyId, Reminder.ReminderType reminderType) {
-        LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime startOfDay = now.toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
         
         return reminderRepository.findByElderlyIdAndActive(elderlyId, true).stream()
                 .filter(r -> {
-                    LocalDateTime time = r.getReminderTime();
-                    boolean inRange = time.isAfter(startOfDay) && time.isBefore(endOfDay);
+                    // Type filter
                     boolean typeMatch = reminderType == null || r.getReminderType() == reminderType;
-                    return inRange && typeMatch;
+                    if (!typeMatch) return false;
+                    
+                    LocalDateTime reminderTime = r.getReminderTime();
+                    if (reminderTime == null) return false;
+                    
+                    // Check if reminder applies today based on repeat pattern
+                    String pattern = r.getRepeatPattern();
+                    
+                    if (pattern == null || "once".equalsIgnoreCase(pattern)) {
+                        // One-time reminder: check if it's today
+                        return reminderTime.isAfter(startOfDay) && reminderTime.isBefore(endOfDay);
+                    } else if ("daily".equalsIgnoreCase(pattern)) {
+                        // Daily: applies today if reminder date is today or before today
+                        return !reminderTime.toLocalDate().isAfter(now.toLocalDate());
+                    } else if ("weekly".equalsIgnoreCase(pattern)) {
+                        // Weekly: applies if same day of week and reminder date is today or before
+                        boolean sameWeekday = reminderTime.getDayOfWeek() == now.getDayOfWeek();
+                        boolean startedBefore = !reminderTime.toLocalDate().isAfter(now.toLocalDate());
+                        return sameWeekday && startedBefore;
+                    } else if ("monthly".equalsIgnoreCase(pattern)) {
+                        // Monthly: applies if same day of month and reminder date is today or before
+                        boolean sameDayOfMonth = reminderTime.getDayOfMonth() == now.getDayOfMonth();
+                        boolean startedBefore = !reminderTime.toLocalDate().isAfter(now.toLocalDate());
+                        return sameDayOfMonth && startedBefore;
+                    } else if ("yearly".equalsIgnoreCase(pattern)) {
+                        // Yearly: applies if same month and day, and reminder date is today or before
+                        boolean sameMonthDay = reminderTime.getMonth() == now.getMonth() 
+                                             && reminderTime.getDayOfMonth() == now.getDayOfMonth();
+                        boolean startedBefore = !reminderTime.toLocalDate().isAfter(now.toLocalDate());
+                        return sameMonthDay && startedBefore;
+                    }
+                    
+                    return false;
                 })
                 .map(ReminderDTO::fromEntity)
                 .collect(Collectors.toList());
