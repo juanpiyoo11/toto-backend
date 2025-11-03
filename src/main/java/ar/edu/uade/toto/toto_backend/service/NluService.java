@@ -116,7 +116,12 @@ public class NluService {
                             "    Ejemplos: \"mañana tengo turno médico\" → title=\"turno médico\"; \"tomar la aspirina\" → title=\"tomar la aspirina\".\n" +
                             "  * slots.reminder_type: clasifica en \"medication\" (remedios/pastillas/tomar medicamentos), \"appointment\" (turnos médicos/citas/dentista/doctor), o \"event\" (otros eventos/tareas generales).\n" +
                             "  * slots.repeat_pattern: determina frecuencia. Valores: \"once\" (única vez, ej: \"mañana tengo turno\"), \"daily\" (todos los días/diario, ej: \"todos los días a las 8\"), \"weekly\" (todas las semanas), \"monthly\" (mensual). Default: \"once\" si no se especifica.\n" +
-                            "- Si falta hora: needs_confirmation=true, clarifying_question=\"¿A qué hora querés que te lo recuerde?\".\n" +
+                            "  * slots.hour y slots.minute: extraé SOLO si hay una hora ESPECÍFICA mencionada (\"a las 3\", \"a las 15:30\", \"8 de la mañana\"). Si dice \"cada 8 horas\" o \"cada X horas\" sin mencionar hora de inicio, NO llenes hour/minute.\n" +
+                            "- Si falta hora específica (hour/minute son null): needs_confirmation=true, ack_tts=null.\n" +
+                            "  * Para medication: clarifying_question=\"¿A qué hora tenés que tomar el medicamento?\"\n" +
+                            "  * Para appointment: clarifying_question=\"¿A qué hora es el turno?\"\n" +
+                            "  * Para event: clarifying_question=\"¿A qué hora es?\"\n" +
+                            "- Si tiene hora completa: needs_confirmation=false, ack_tts con mensaje de confirmación apropiado.\n" +
                             "- \"qué medicamentos/remedios tengo\", \"qué tengo que tomar\", \"mis recordatorios\" → QUERY_REMINDERS.\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
                             "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
@@ -258,7 +263,7 @@ public class NluService {
             ObjectNode rem1A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.97,"needs_confirmation":true,
  "slots":{"message_text":"mañana tengo turno médico","reminder_title":"turno médico","reminder_type":"appointment","repeat_pattern":"once"},
- "ack_tts":null,"clarifying_question":"¿A qué hora querés que te lo recuerde?","safety_notes":null}""");
+ "ack_tts":null,"clarifying_question":"¿A qué hora es el turno?","safety_notes":null}""");
             ObjectNode rem2U = objectMsg("user", "Anotame que tengo que tomar la aspirina a las 3 de la tarde");
             ObjectNode rem2A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
@@ -291,12 +296,22 @@ public class NluService {
             ObjectNode rem8A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.96,"needs_confirmation":true,
  "slots":{"message_text":"el viernes tengo reunión familiar","reminder_title":"reunión familiar","reminder_type":"event","repeat_pattern":"once"},
- "ack_tts":null,"clarifying_question":"¿A qué hora querés que te lo recuerde?","safety_notes":null}""");
+ "ack_tts":null,"clarifying_question":"¿A qué hora es?","safety_notes":null}""");
             ObjectNode rem9U = objectMsg("user", "Recordame que mañana tengo un turno medico a las 8");
             ObjectNode rem9A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
  "slots":{"message_text":"mañana tengo un turno medico a las 8","reminder_title":"turno médico","reminder_type":"appointment","repeat_pattern":"once","hour":8,"minute":0},
  "ack_tts":"Perfecto, te anoto el turno médico.","clarifying_question":null,"safety_notes":null}""");
+            ObjectNode rem10U = objectMsg("user", "Recordarme que tengo que tomar un paracetamol cada ocho horas");
+            ObjectNode rem10A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.97,"needs_confirmation":true,
+ "slots":{"message_text":"tengo que tomar un paracetamol cada ocho horas","reminder_title":"tomar un paracetamol","reminder_type":"medication","repeat_pattern":"daily","hour":null,"minute":null},
+ "ack_tts":null,"clarifying_question":"¿A qué hora tenés que tomar el medicamento?","safety_notes":null}""");
+            ObjectNode rem11U = objectMsg("user", "Recordame que tengo un partido de fútbol");
+            ObjectNode rem11A = objectMsg("assistant", """
+{"intent":"CREATE_REMINDER","confidence":0.96,"needs_confirmation":true,
+ "slots":{"message_text":"tengo un partido de fútbol","reminder_title":"partido de fútbol","reminder_type":"event","repeat_pattern":"once","hour":null,"minute":null},
+ "ack_tts":null,"clarifying_question":"¿A qué hora es?","safety_notes":null}""");
 
             // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
@@ -443,6 +458,8 @@ public class NluService {
             input.add(rem7U); input.add(rem7A);
             input.add(rem8U); input.add(rem8A);
             input.add(rem9U); input.add(rem9A);
+            input.add(rem10U); input.add(rem10A);
+            input.add(rem11U); input.add(rem11A);
 
             // usuario real al final
             input.add(objectMsg("user", userText.toString()));
