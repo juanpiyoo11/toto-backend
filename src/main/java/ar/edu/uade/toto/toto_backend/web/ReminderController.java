@@ -2,6 +2,7 @@ package ar.edu.uade.toto.toto_backend.web;
 
 import ar.edu.uade.toto.toto_backend.dto.PendingReminderDTO;
 import ar.edu.uade.toto.toto_backend.dto.ReminderDTO;
+import ar.edu.uade.toto.toto_backend.entity.Reminder;
 import ar.edu.uade.toto.toto_backend.service.ReminderNotificationService;
 import ar.edu.uade.toto.toto_backend.service.ReminderService;
 import jakarta.validation.Valid;
@@ -107,9 +108,23 @@ public class ReminderController {
 
     /**
      * Get today's reminders for an elderly person (for voice queries like "¿Qué medicamentos tengo hoy?").
+     * @param elderlyId The elderly person's ID
+     * @param type Optional filter by reminder type (medication, appointment, event)
      */
     @GetMapping("/today")
-    public ResponseEntity<List<ReminderDTO>> getTodayReminders(@RequestParam Long elderlyId) {
-        return ResponseEntity.ok(reminderService.getTodayReminders(elderlyId));
+    public ResponseEntity<List<ReminderDTO>> getTodayReminders(
+            @RequestParam Long elderlyId,
+            @RequestParam(required = false) String type) {
+        
+        Reminder.ReminderType reminderType = null;
+        if (type != null && !type.isEmpty()) {
+            try {
+                reminderType = Reminder.ReminderType.valueOf(type.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Invalid type, ignore and return all
+            }
+        }
+        
+        return ResponseEntity.ok(reminderService.getTodayReminders(elderlyId, reminderType));
     }
 }

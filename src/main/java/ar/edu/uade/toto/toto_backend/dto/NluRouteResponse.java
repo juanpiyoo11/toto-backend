@@ -22,5 +22,6 @@ public class NluRouteResponse {
         public String  reminder_title;    // Núcleo del recordatorio sin palabras temporales
         public String  reminder_type;     // medication, appointment, event
         public String  repeat_pattern;    // once, daily, weekly, monthly
+        public String  query_reminder_type; // medication, appointment, event (para QUERY_REMINDERS)
     }
 }

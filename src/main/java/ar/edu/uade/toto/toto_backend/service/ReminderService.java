@@ -102,16 +102,20 @@ public class ReminderService {
     /**
      * Get active reminders for a specific elderly person for today.
      * Useful for voice queries like "¿Qué medicamentos tengo hoy?"
+     * @param elderlyId The elderly person's ID
+     * @param reminderType Optional filter by reminder type (MEDICATION, APPOINTMENT, EVENT)
      */
     @Transactional(readOnly = true)
-    public List<ReminderDTO> getTodayReminders(Long elderlyId) {
+    public List<ReminderDTO> getTodayReminders(Long elderlyId, Reminder.ReminderType reminderType) {
         LocalDateTime startOfDay = LocalDateTime.now().toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
         
         return reminderRepository.findByElderlyIdAndActive(elderlyId, true).stream()
                 .filter(r -> {
                     LocalDateTime time = r.getReminderTime();
-                    return time.isAfter(startOfDay) && time.isBefore(endOfDay);
+                    boolean inRange = time.isAfter(startOfDay) && time.isBefore(endOfDay);
+                    boolean typeMatch = reminderType == null || r.getReminderType() == reminderType;
+                    return inRange && typeMatch;
                 })
                 .map(ReminderDTO::fromEntity)
                 .collect(Collectors.toList());
