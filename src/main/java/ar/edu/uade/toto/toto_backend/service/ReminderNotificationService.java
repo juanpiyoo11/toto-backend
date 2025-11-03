@@ -47,6 +47,9 @@ public class ReminderNotificationService {
         LocalDateTime now = LocalDateTime.now();
         List<Reminder> activeReminders = reminderRepository.findByElderlyIdAndActive(elderlyId, true);
         
+        log.info("Checking {} active reminders for elderlyId={} at {}", 
+                 activeReminders.size(), elderlyId, now);
+        
         List<PendingReminderDTO> pending = new ArrayList<>();
         
         for (Reminder reminder : activeReminders) {
@@ -71,26 +74,38 @@ public class ReminderNotificationService {
     private boolean shouldTriggerReminder(Reminder reminder, LocalDateTime now) {
         LocalDateTime effectiveTime = reminder.getEffectiveReminderTime();
         
+        if (effectiveTime == null) {
+            log.debug("Reminder {} has null effectiveTime, skipping", reminder.getId());
+            return false;
+        }
+        
         // Calculate minutes difference
         long minutesUntil = ChronoUnit.MINUTES.between(now, effectiveTime);
+        
+        log.debug("Reminder {} ({}): effectiveTime={}, minutesUntil={}", 
+                  reminder.getId(), reminder.getTitle(), effectiveTime, minutesUntil);
         
         // For MEDICATION: trigger exactly at time (0 min early, up to 60 min late)
         // For APPOINTMENT/EVENT: trigger at effectiveTime (already includes leadTime subtraction)
         if (minutesUntil > 0) {
             // Not yet time - don't trigger
+            log.debug("Reminder {} not yet time (minutesUntil={})", reminder.getId(), minutesUntil);
             return false;
         }
         
         if (minutesUntil < -60) {
             // More than 1 hour late - too late
+            log.debug("Reminder {} too late (minutesUntil={})", reminder.getId(), minutesUntil);
             return false;
         }
         
         // Check if already announced today
         if (wasAnnouncedToday(reminder)) {
+            log.debug("Reminder {} already announced today", reminder.getId());
             return false;
         }
         
+        log.info("Reminder {} should trigger (minutesUntil={})", reminder.getId(), minutesUntil);
         return true;
     }
 
