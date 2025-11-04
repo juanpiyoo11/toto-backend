@@ -4,6 +4,8 @@ import ar.edu.uade.toto.toto_backend.dto.ReminderDTO;
 import ar.edu.uade.toto.toto_backend.entity.Reminder;
 import ar.edu.uade.toto.toto_backend.exception.ResourceNotFoundException;
 import ar.edu.uade.toto.toto_backend.repository.ReminderRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,6 +16,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ReminderService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReminderService.class);
 
     @Autowired
     private ReminderRepository reminderRepository;
@@ -114,6 +118,9 @@ public class ReminderService {
         LocalDateTime queryDate = targetDate != null ? targetDate : LocalDateTime.now();
         LocalDateTime startOfDay = queryDate.toLocalDate().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
+        
+        log.info("getTodayReminders: elderlyId={}, type={}, targetDate={}, queryDate={}, timezone={}", 
+                 elderlyId, reminderType, targetDate, queryDate, java.util.TimeZone.getDefault().getID());
         
         return reminderRepository.findByElderlyIdAndActive(elderlyId, true).stream()
                 .filter(r -> {

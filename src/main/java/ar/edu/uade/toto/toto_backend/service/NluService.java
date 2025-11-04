@@ -69,6 +69,11 @@ public class NluService {
             String tz     = (req != null && req.tz != null && !req.tz.isBlank()) ? req.tz : defaultTz;
             long nowMs    = (req != null && req.now_epoch_ms != null) ? req.now_epoch_ms : System.currentTimeMillis();
 
+            // Log the current date for debugging
+            java.time.Instant instant = java.time.Instant.ofEpochMilli(nowMs);
+            java.time.ZonedDateTime zonedDateTime = instant.atZone(java.time.ZoneId.of(tz));
+            log.info("NLU route - nowMs={}, tz={}, currentDate={}", nowMs, tz, zonedDateTime.toLocalDate());
+
             // ===== Normalización ligera =====
             String norm = normalizeLite(text);
 
