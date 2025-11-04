@@ -146,6 +146,11 @@ public class ReminderNotificationService {
             // Get the reminder to check its repeat pattern
             Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
             
+            log.info("Marking reminder announced - reminderId: {}, reminder: {}, title: {}", 
+                reminderId, 
+                reminder != null ? "found" : "not found",
+                reminder != null ? reminder.getTitle() : "null");
+            
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "announced");
@@ -153,6 +158,8 @@ public class ReminderNotificationService {
                 details.put("title", reminder.getTitle());
                 details.put("reminderType", reminder.getReminderType().toString());
             }
+            
+            log.info("Reminder announced details JSON: {}", objectMapper.writeValueAsString(details));
             
             HistoryEvent event = new HistoryEvent();
             event.setUserId(elderlyId);
@@ -182,6 +189,11 @@ public class ReminderNotificationService {
         try {
             Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
             
+            log.info("Recording medication taken - reminderId: {}, reminder: {}, title: {}", 
+                reminderId, 
+                reminder != null ? "found" : "not found",
+                reminder != null ? reminder.getTitle() : "null");
+            
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "taken");
@@ -192,6 +204,8 @@ public class ReminderNotificationService {
             if (notes != null && !notes.isEmpty()) {
                 details.put("notes", notes);
             }
+            
+            log.info("Medication taken details JSON: {}", objectMapper.writeValueAsString(details));
             
             HistoryEvent event = new HistoryEvent();
             event.setUserId(elderlyId);
@@ -214,6 +228,11 @@ public class ReminderNotificationService {
         try {
             Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
             
+            log.info("Recording medication skipped - reminderId: {}, reminder: {}, title: {}", 
+                reminderId, 
+                reminder != null ? "found" : "not found",
+                reminder != null ? reminder.getTitle() : "null");
+            
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "skipped");
@@ -224,6 +243,8 @@ public class ReminderNotificationService {
             if (reason != null && !reason.isEmpty()) {
                 details.put("reason", reason);
             }
+            
+            log.info("Medication skipped details JSON: {}", objectMapper.writeValueAsString(details));
             
             HistoryEvent event = new HistoryEvent();
             event.setUserId(elderlyId);
