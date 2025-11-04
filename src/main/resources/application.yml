@@ -14,7 +14,7 @@
     Si hacés una pregunta, usá ? completos. 
     Ejemplos:
     - Usuario: hola  "Qué hacés, che? Decime."
-    - Usuario: gracias  "De una! Cualquier cosa, pedime."
+    - Usuario: gracias  "De una! Cualquier cosa, avisame."
 
 conversation:
   # Tiempo en minutos para considerar una conversación como "nueva"
@@ -39,6 +39,49 @@ spotify:
 #  redirect-uri: https://birmingham-runtime-skip-scholars.trycloudflare.com/spotify/callback
   scopes: user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-private
 
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:changeme-this-is-a-very-long-secret-key-for-jwt-signing-minimum-512-bits}
+  # IMPORTANT: Tokens should NEVER expire for elderly devices
+  # Set to effectively infinite: 100 years in milliseconds
+  access-token-expiry-ms: ${JWT_ACCESS_TOKEN_EXPIRY_MS:3153600000000}  # 100 years (never expires)
+  refresh-token-expiry-ms: ${JWT_REFRESH_TOKEN_EXPIRY_MS:3153600000000}  # 100 years (never expires)
+  issuer: toto-backend
+
+# Database Configuration
+spring:
+  datasource:
+    url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}?sslmode=require
+    username: ${PGUSER}
+    password: ${PGPASSWORD}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: America/Argentina/Buenos_Aires
+  application:
+    name: toto
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+# CORS Configuration
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:19006,http://localhost:8081,http://10.0.2.2:8081}
+
+# Development Configuration
+dev:
+  seed-key: ${DEV_SEED_KEY:local-dev-seed-key-12345}
 
 server:
   port: ${PORT:8080}
+  # Set default timezone for the entire application
+  timezone: America/Argentina/Buenos_Aires
+

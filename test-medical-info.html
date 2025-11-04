@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Medical Info</title>
+</head>
+<body>
+    <h1>Test Medical Info Registration</h1>
+    <button onclick="testRegister()">Test Registration</button>
+    <div id="result"></div>
+
+    <script>
+        async function testRegister() {
+            const data = {
+                name: "Test Elderly Web",
+                email: null,
+                password: null,
+                phone: "123456789",
+                role: "ELDERLY",
+                address: "Test Address 123",
+                birthdate: "01/01/1950",
+                medicalInfo: "Diabetes tipo 2, hipertension arterial, problemas de movilidad"
+            };
+
+            console.log('Enviando datos:', data);
+
+            try {
+                const response = await fetch('http://localhost:8080/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                console.log('Respuesta:', result);
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+                // También mostrar el usuario creado
+                if (result.user) {
+                    console.log('Usuario creado con medicalInfo:', result.user.medicalInfo);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        }
+    </script>
+</body>
+</html>

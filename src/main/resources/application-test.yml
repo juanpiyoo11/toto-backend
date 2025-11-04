@@ -1,0 +1,53 @@
+# Test Profile Configuration
+# Use this for local testing without PostgreSQL
+
+openai:
+  api-key: ${OPENAI_API_KEY:test-key}
+  api-url: https://api.openai.com/v1/responses
+  model: gpt-4o-mini
+  audio-url: https://api.openai.com/v1/audio/transcriptions
+  stt-model: whisper-1
+  default-tz: America/Argentina/Buenos_Aires
+  default-locale: es-AR
+
+whatsapp:
+  token: ${WHATSAPP_TOKEN:test-token}
+  phone-id: ${WHATSAPP_PHONE_ID:test-phone}
+  verify-token: ${WHATSAPP_VERIFY_TOKEN:test-verify}
+  graph-version: v22.0
+  default-region: AR
+  argentina:
+    drop9: true
+  template-name-open: toto_open_text
+  template-language-code: es_AR
+
+spotify:
+  client-id: ${SPOTIFY_CLIENT_ID:test-client}
+  client-secret: ${SPOTIFY_CLIENT_SECRET:test-secret}
+  redirect-uri: http://localhost:8080/spotify/callback
+  scopes: user-modify-playback-state user-read-playback-state user-read-currently-playing user-read-private
+
+jwt:
+  secret: test-secret-key-for-jwt-signing-must-be-at-least-512-bits-long-for-hs512-algorithm
+  access-token-expiry-ms: 3600000  # 1 hour
+  refresh-token-expiry-ms: 604800000  # 7 days
+  issuer: toto-backend
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+  sql:
+    init:
+      mode: always
