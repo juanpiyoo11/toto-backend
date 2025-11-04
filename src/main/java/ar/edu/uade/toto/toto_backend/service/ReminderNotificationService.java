@@ -149,6 +149,10 @@ public class ReminderNotificationService {
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "announced");
+            if (reminder != null && reminder.getTitle() != null) {
+                details.put("title", reminder.getTitle());
+                details.put("reminderType", reminder.getReminderType().toString());
+            }
             
             HistoryEvent event = new HistoryEvent();
             event.setUserId(elderlyId);
@@ -176,9 +180,15 @@ public class ReminderNotificationService {
     @Transactional
     public void recordMedicationTaken(Long reminderId, Long elderlyId, String notes) {
         try {
+            Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
+            
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "taken");
+            if (reminder != null && reminder.getTitle() != null) {
+                details.put("title", reminder.getTitle());
+                details.put("reminderType", reminder.getReminderType().toString());
+            }
             if (notes != null && !notes.isEmpty()) {
                 details.put("notes", notes);
             }
@@ -202,9 +212,15 @@ public class ReminderNotificationService {
     @Transactional
     public void recordMedicationSkipped(Long reminderId, Long elderlyId, String reason) {
         try {
+            Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
+            
             ObjectNode details = objectMapper.createObjectNode();
             details.put("reminderId", reminderId);
             details.put("action", "skipped");
+            if (reminder != null && reminder.getTitle() != null) {
+                details.put("title", reminder.getTitle());
+                details.put("reminderType", reminder.getReminderType().toString());
+            }
             if (reason != null && !reason.isEmpty()) {
                 details.put("reason", reason);
             }
