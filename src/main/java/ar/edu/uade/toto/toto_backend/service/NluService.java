@@ -320,11 +320,11 @@ public class NluService {
             ObjectNode rem5U = objectMsg("user", "Sí, ya la tomé");
             ObjectNode rem5A = objectMsg("assistant", """
 {"intent":"CONFIRM_MEDICATION","confidence":0.98,"needs_confirmation":false,
- "slots":{},"ack_tts":"Perfecto, lo registro.","clarifying_question":null,"safety_notes":null}""");
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode rem6U = objectMsg("user", "No, todavía no");
             ObjectNode rem6A = objectMsg("assistant", """
 {"intent":"DENY_MEDICATION","confidence":0.96,"needs_confirmation":false,
- "slots":{},"ack_tts":"Bueno, avisame cuando la tomes.","clarifying_question":null,"safety_notes":null}""");
+ "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             
             // Additional reminder examples
             ObjectNode rem7U = objectMsg("user", "Recordame que tengo que tomar el ibuprofeno todos los días a las 8");
