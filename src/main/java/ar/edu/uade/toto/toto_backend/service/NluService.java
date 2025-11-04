@@ -29,9 +29,8 @@ public class NluService {
 
     private static final Logger log = LoggerFactory.getLogger(NluService.class);
 
-    // --- Flags de estrategia ---
-    private static final boolean USE_GUARDRAILS_AFTER_MODEL = false;   // el modelo manda
-    private static final boolean USE_GUARDRAILS_ON_FAILURE = true;     // solo fallback si falla API
+    private static final boolean USE_GUARDRAILS_AFTER_MODEL = false;
+    private static final boolean USE_GUARDRAILS_ON_FAILURE = true;
 
     private final OkHttpClient http = new OkHttpClient();
     private final ObjectMapper mapper = new ObjectMapper();
@@ -40,7 +39,7 @@ public class NluService {
     private final String apiUrl;
     private final String model;
     private final String defaultLocale;
-    private final String systemStyle;   // compat
+    private final String systemStyle;
     private final String defaultTz;
 
     public NluService(
@@ -69,15 +68,12 @@ public class NluService {
             String tz     = (req != null && req.tz != null && !req.tz.isBlank()) ? req.tz : defaultTz;
             long nowMs    = (req != null && req.now_epoch_ms != null) ? req.now_epoch_ms : System.currentTimeMillis();
 
-            // Log the current date for debugging
             java.time.Instant instant = java.time.Instant.ofEpochMilli(nowMs);
             java.time.ZonedDateTime zonedDateTime = instant.atZone(java.time.ZoneId.of(tz));
             log.info("NLU route - nowMs={}, tz={}, currentDate={}", nowMs, tz, zonedDateTime.toLocalDate());
 
-            // ===== Normalización ligera =====
             String norm = normalizeLite(text);
 
-            // ===== Prompt (clasificador) =====
             String systemPrompt =
                     "Sos el router NLU de \"Toto\". Devolvés SOLO JSON válido según el schema (sin texto extra).\n" +
                             "Evitá falsos positivos. Si hay duda real: needs_confirmation=true y clarifying_question breve.\n" +
@@ -168,7 +164,6 @@ public class NluService {
                             "Locale: " + locale + " | TZ: " + tz + " | now_epoch_ms: " + nowMs + "\n" +
                             "Para QUERY_TIME/QUERY_DATE NO generes ack_tts (el cliente habla la respuesta).";
 
-            // ===== Few-shots base =====
             ObjectNode ex1U = objectMsg("user", "¿Qué hora es?");
             ObjectNode ex1A = objectMsg("assistant", """
 {"intent":"QUERY_TIME","confidence":0.99,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
@@ -216,7 +211,6 @@ public class NluService {
             ObjectNode exNegTimeSem1A = objectMsg("assistant", """
 {"intent":"ANSWER","confidence":0.95,"needs_confirmation":false,"slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
 
-            // ===== Few-shots Spotify =====
             ObjectNode sp1U = objectMsg("user", "Poné Soda Stereo");
             ObjectNode sp1A = objectMsg("assistant", """
 {"intent":"SPOTIFY_PLAY","confidence":0.97,"needs_confirmation":false,
@@ -279,7 +273,6 @@ public class NluService {
  "slots":{"message_text":"off"},
  "ack_tts":"Desactivo repetir.","clarifying_question":null,"safety_notes":null}""");
 
-            // ===== Few-shots FALL =====
             ObjectNode fall1U = objectMsg("user", "me caí");
             ObjectNode fall1A = objectMsg("assistant", """
 {"intent":"FALL","confidence":0.99,"needs_confirmation":false,
@@ -293,7 +286,6 @@ public class NluService {
 {"intent":"FALL","confidence":0.97,"needs_confirmation":false,
  "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":"possible fall"}""");
 
-            // ===== Few-shots REMINDERS =====
             ObjectNode rem1U = objectMsg("user", "Recordame que mañana tengo turno médico");
             ObjectNode rem1A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.97,"needs_confirmation":true,
@@ -304,19 +296,13 @@ public class NluService {
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
  "slots":{"message_text":"tengo que tomar la aspirina a las 3 de la tarde","reminder_title":"tomar la aspirina","reminder_type":"medication","repeat_pattern":"once","hour":15,"minute":0},
  "ack_tts":"Listo, te anoto el recordatorio.","clarifying_question":null,"safety_notes":null}""");
-            
-            // IMPORTANT: The dates below are examples showing HOW to calculate dates, not literal values to copy.
-            // ALWAYS calculate datetime_iso from now_epoch_ms + tz dynamically for each query:
-            // - "hoy" → convert now_epoch_ms to date in tz
-            // - "mañana" → convert now_epoch_ms to date in tz, then add 1 day
-            // DO NOT copy the example dates (2025-11-03, 2025-11-04), compute them fresh each time!
-            
-            // Calculate current date for examples (this shows the MODEL how to do it)
+
+
             java.time.LocalDate exampleToday = java.time.Instant.ofEpochMilli(nowMs)
                 .atZone(java.time.ZoneId.of(tz))
                 .toLocalDate();
-            String exampleTodayStr = exampleToday.toString(); // e.g., "2025-11-03"
-            String exampleTomorrowStr = exampleToday.plusDays(1).toString(); // e.g., "2025-11-04"
+            String exampleTodayStr = exampleToday.toString();
+            String exampleTomorrowStr = exampleToday.plusDays(1).toString();
             
             ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy\ntz: " + tz + "\nnow_epoch_ms: " + nowMs);
             ObjectNode rem3A = objectMsg("assistant", String.format("""
@@ -346,8 +332,7 @@ public class NluService {
             ObjectNode rem6A = objectMsg("assistant", """
 {"intent":"DENY_MEDICATION","confidence":0.96,"needs_confirmation":false,
  "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            
-            // Additional reminder examples
+
             ObjectNode rem7U = objectMsg("user", "Recordame que tengo que tomar el ibuprofeno todos los días a las 8");
             ObjectNode rem7A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
@@ -373,15 +358,13 @@ public class NluService {
 {"intent":"CREATE_REMINDER","confidence":0.96,"needs_confirmation":true,
  "slots":{"message_text":"tengo un partido de fútbol","reminder_title":"partido de fútbol","reminder_type":"event","repeat_pattern":"once","hour":null,"minute":null},
  "ack_tts":null,"clarifying_question":"¿A qué hora es?","safety_notes":null}""");
-            
-            // Example: completing a pending reminder with context
+
             ObjectNode rem12U = objectMsg("user", "a las nueve\ncontexto: {\"pending_reminder_message\":\"tengo que tomar un paracetamol cada ocho horas\",\"pending_reminder_title\":\"tomar un paracetamol\",\"pending_reminder_type\":\"medication\",\"pending_reminder_pattern\":\"daily\",\"awaiting_clarification\":\"hour_for_reminder\"}");
             ObjectNode rem12A = objectMsg("assistant", """
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
  "slots":{"message_text":"tengo que tomar un paracetamol cada ocho horas","reminder_title":"tomar un paracetamol","reminder_type":"medication","repeat_pattern":"daily","hour":9,"minute":0},
  "ack_tts":"Listo, te anoto el recordatorio para tomar el paracetamol a las nueve.","clarifying_question":null,"safety_notes":null}""");
 
-            // DELETE_REMINDER examples
             ObjectNode remDel1U = objectMsg("user", "Eliminame el recordatorio de paracetamol para las 18 horas");
             ObjectNode remDel1A = objectMsg("assistant", """
 {"intent":"DELETE_REMINDER","confidence":0.98,"needs_confirmation":false,
@@ -398,7 +381,6 @@ public class NluService {
  "slots":{"reminder_title":"cumpleaños de jorge","query_reminder_type":"event"},
  "ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
 
-            // ===== Usuario real =====
             StringBuilder userText = new StringBuilder();
             userText.append("texto: ").append(safe(text)).append("\n");
             userText.append("texto_normalizado: ").append(norm).append("\n");
@@ -411,7 +393,6 @@ public class NluService {
                 userText.append("hints: ").append(mapSafe(req.hints)).append("\n");
             }
 
-            // ===== JSON Schema =====
             ObjectNode schema = mapper.createObjectNode();
             schema.put("$schema", "http://json-schema.org/draft-07/schema#");
             schema.put("type", "object");
@@ -432,7 +413,6 @@ public class NluService {
             props.putObject("confidence").put("type","number").put("minimum",0.0).put("maximum",1.0);
             props.putObject("needs_confirmation").put("type","boolean");
 
-            // slots
             ObjectNode slots = props.putObject("slots");
             slots.put("type","object");
             slots.put("additionalProperties", false);
@@ -454,8 +434,7 @@ public class NluService {
 
             ArrayNode tMsg = slotsProps.putObject("message_text").putArray("type");
             tMsg.add("string").add("null");
-            
-            // Reminder-specific fields
+
             ArrayNode tReminderTitle = slotsProps.putObject("reminder_title").putArray("type");
             tReminderTitle.add("string").add("null");
             
@@ -503,7 +482,6 @@ public class NluService {
             ArrayNode input = root.putArray("input");
             input.add(objectMsg("system", systemPrompt));
 
-            // shots
             input.add(ex1U); input.add(ex1A);
             input.add(ex2U); input.add(ex2A);
             input.add(ex2bU); input.add(ex2bA);
@@ -517,7 +495,6 @@ public class NluService {
             input.add(exMsg3U); input.add(exMsg3A);
             input.add(exNegTimeSem1U); input.add(exNegTimeSem1A);
 
-            // Spotify shots
             input.add(sp1U); input.add(sp1A);
             input.add(sp2U); input.add(sp2A);
             input.add(sp3U); input.add(sp3A);
@@ -532,12 +509,10 @@ public class NluService {
             input.add(sp12U); input.add(sp12A);
             input.add(sp13U); input.add(sp13A);
 
-            // FALL shots
             input.add(fall1U); input.add(fall1A);
             input.add(fall2U); input.add(fall2A);
             input.add(fall3U); input.add(fall3A);
 
-            // Reminder shots
             input.add(rem1U); input.add(rem1A);
             input.add(rem2U); input.add(rem2A);
             input.add(rem3U); input.add(rem3A);
@@ -552,15 +527,13 @@ public class NluService {
             input.add(rem9U); input.add(rem9A);
             input.add(rem10U); input.add(rem10A);
             input.add(rem11U); input.add(rem11A);
-            input.add(rem12U); input.add(rem12A);  // Completing pending reminder
-            input.add(remDel1U); input.add(remDel1A);  // Delete reminder examples
+            input.add(rem12U); input.add(rem12A);
+            input.add(remDel1U); input.add(remDel1A);
             input.add(remDel2U); input.add(remDel2A);
             input.add(remDel3U); input.add(remDel3A);
 
-            // usuario real al final
             input.add(objectMsg("user", userText.toString()));
 
-            // text.format json_schema
             ObjectNode textObj = mapper.createObjectNode();
             ObjectNode textFormat = mapper.createObjectNode();
             textFormat.put("type", "json_schema");
@@ -585,7 +558,7 @@ public class NluService {
                         NluRouteResponse guard = guardrailTimeOrDate(norm);
                         if (guard == null) guard = guardrailCall(norm);
                         if (guard == null) guard = guardrailSendMessage(norm);
-                        if (guard == null) guard = guardrailFall(norm);  // <-- NUEVO
+                        if (guard == null) guard = guardrailFall(norm);
                         if (guard != null) return guard;
                     }
                     return fallback("ANSWER", "No estoy seguro, ¿podés repetir?");
@@ -599,7 +572,7 @@ public class NluService {
                         NluRouteResponse guard = guardrailTimeOrDate(norm);
                         if (guard == null) guard = guardrailCall(norm);
                         if (guard == null) guard = guardrailSendMessage(norm);
-                        if (guard == null) guard = guardrailFall(norm);  // <-- NUEVO
+                        if (guard == null) guard = guardrailFall(norm);
                         if (guard != null) return guard;
                     }
                     log.warn("NLU/route sin output. text='{}'", text);
@@ -608,11 +581,9 @@ public class NluService {
 
                 NluRouteResponse out = mapper.readValue(json.getBytes(StandardCharsets.UTF_8), NluRouteResponse.class);
 
-                // Normalizaciones
                 if (out.intent == null) out.intent = "UNKNOWN";
                 if (out.slots == null) out.slots = new NluRouteResponse.Slots();
 
-                // ===== Post-model: SEND_MESSAGE robusto =====
                 if ("SEND_MESSAGE".equalsIgnoreCase(out.intent)) {
                     MsgParts mp = extractMsgParts(norm);
                     if (mp != null) {
@@ -641,21 +612,18 @@ public class NluService {
                     }
                 }
 
-                // ===== Post-model: FALL =====
                 if ("FALL".equalsIgnoreCase(out.intent)) {
                     out.needs_confirmation = false;
-                    out.ack_tts = null; // el cliente dispara el flujo de caídas
+                    out.ack_tts = null;
                     if (out.confidence < 0.90) out.confidence = 0.90;
                 }
 
-                // ===== Post-model: Corrección fuerte para HORA/FECHA ahora =====
                 NluRouteResponse timeDateGuard = guardrailTimeOrDate(norm);
                 if (timeDateGuard != null && !("QUERY_TIME".equalsIgnoreCase(out.intent) || "QUERY_DATE".equalsIgnoreCase(out.intent))) {
                     log.info("Overriding intent {} → {} por patrón claro de hora/fecha", out.intent, timeDateGuard.intent);
                     out = timeDateGuard;
                 }
 
-                // Guardrails post-model deshabilitados por defecto
                 if (USE_GUARDRAILS_AFTER_MODEL &&
                         ("ANSWER".equalsIgnoreCase(out.intent) || "UNKNOWN".equalsIgnoreCase(out.intent))) {
                     NluRouteResponse guard = guardrailTimeOrDate(norm);
@@ -665,14 +633,12 @@ public class NluService {
                     if (guard != null) out = guard;
                 }
 
-                // Para hora/fecha, habla el cliente
                 if ("QUERY_TIME".equals(out.intent) || "QUERY_DATE".equals(out.intent)) {
                     out.ack_tts = null;
                     out.needs_confirmation = false;
                     if (out.confidence < 0.95) out.confidence = 0.95;
                 }
 
-                // Bounds
                 if (out.confidence < 0.0) out.confidence = 0.0;
                 if (out.confidence > 1.0) out.confidence = 1.0;
 
@@ -686,9 +652,8 @@ public class NluService {
                         out.intent, out.confidence, out.needs_confirmation, norm, slotsLog);
 
                 if ("SET_ALARM".equalsIgnoreCase(out.intent)) {
-                    Integer minsRel = parseRelativeMinutes(norm); // detecta "en 10 minutos", "en 2 horas", etc.
+                    Integer minsRel = parseRelativeMinutes(norm);
 
-                    // Si detectamos tiempo relativo, SIEMPRE lo usamos (ignorando hour/minute del modelo)
                     if (minsRel != null && minsRel > 0) {
                         java.time.ZoneId zone = safeZone(tz);
                         java.time.ZonedDateTime tgt = java.time.Instant.ofEpochMilli(nowMs)
@@ -702,8 +667,7 @@ public class NluService {
                         out.needs_confirmation = false;
                         if (out.confidence < 0.95) out.confidence = 0.95;
                     }
-                    
-                    // No generar ack_tts para alarmas: el cliente habla la confirmación completa
+
                     out.ack_tts = null;
                 }
 
@@ -723,7 +687,6 @@ public class NluService {
         }
     }
 
-    // ===== Guardarraíles (solo fallback) =====
     private static NluRouteResponse guardrailTimeOrDate(String norm) {
         if (norm == null || norm.isBlank()) return null;
         boolean asksTimeNow =
@@ -811,7 +774,6 @@ public class NluService {
     private static final class MsgParts { final String who, text; MsgParts(String w, String t){who=w;text=t;} }
 
     private MsgParts extractMsgParts(String norm) {
-        // norm ya viene sin acentos y en minúscula
         String[] pats = new String[] {
                 "\\b(?:mandale|manda|mandar|escribile|escribirle|escribe|escribir|decile|decirle|dile|avisale|avisa|avisar|envia|enviar|enviale|enviarle)(?:\\s+un\\s+mensaje)?\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|de que|:|–|-)?\\s*(.+)$",
                 "\\b(?:mensaje|msj)\\s+a\\s+([a-z0-9\\s.-]{1,40})\\s*(?:que|:)?\\s*(.+)$"
@@ -854,7 +816,6 @@ public class NluService {
         return s;
     }
 
-    // ===== Helpers CALL =====
     private static String extractContactForCall(String norm) {
         String[] pats = new String[] {
                 "\\bllam\\w*\\s+a\\s+([a-z0-9\\s-]{1,40})\\b",
@@ -911,13 +872,11 @@ public class NluService {
         return s;
     }
 
-    // ===== Helpers =====
     private static boolean containsAny(String haystack, String... needles) {
         for (String n : needles) if (haystack.contains(n)) return true;
         return false;
     }
 
-    /** Detector robusto de intención de MENSAJE (palabras con límites). */
     private static boolean looksMsgSpanish(String norm) {
         if (norm == null || norm.isBlank()) return false;
         String re = ".*\\b(?:mandale|manda|mandar|escribile|escribirle|escribe|escribir|decile|decirle|dile|avisale|avisa|avisar|envia|enviar|enviale|enviarle|mensaje\\s+a|msj\\s+a)\\b.*";
@@ -950,7 +909,6 @@ public class NluService {
         int totalMinutes = 0;
         boolean foundAny = false;
 
-        // en X horas (captura horas)
         java.util.regex.Matcher mHr = java.util.regex.Pattern
                 .compile("\\ben\\s+(\\d{1,2})\\s+hor(?:a|as)\\b")
                 .matcher(norm);
@@ -961,7 +919,6 @@ public class NluService {
             } catch (Exception ignore) {}
         }
 
-        // (y) X minutos (captura minutos, con o sin "y")
         java.util.regex.Matcher mMin = java.util.regex.Pattern
                 .compile("(?:y\\s+)?(\\d{1,3})\\s+minut(?:o|os)\\b")
                 .matcher(norm);
@@ -976,7 +933,6 @@ public class NluService {
             return Math.max(1, totalMinutes);
         }
 
-        // variantes simples comunes (solo si no se encontró nada arriba)
         if (norm.contains("media hora")) return 30;
         if (norm.contains("un minuto") || norm.contains("1 minuto")) return 1;
         if (norm.contains("una hora") || norm.contains("1 hora")) return 60;
@@ -985,7 +941,6 @@ public class NluService {
     }
 
 
-    // ===== Extractor del Responses API =====
     private String extractOutputText(JsonNode root) {
         JsonNode parsed = root.path("output_parsed");
         if (!parsed.isMissingNode() && !parsed.isNull()) {

@@ -27,10 +27,10 @@ public class HistoryEvent {
     private Long userId;
 
     @Column(nullable = false, length = 50)
-    private String eventType; // e.g., "FALL_DETECTED", "CALL_MADE", "REMINDER_TRIGGERED", "VOICE_COMMAND"
+    private String eventType;
 
     @Column(length = 1000)
-    private String details; // JSON or plain text with event details
+    private String details;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

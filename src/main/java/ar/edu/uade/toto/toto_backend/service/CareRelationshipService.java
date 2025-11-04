@@ -21,7 +21,6 @@ public class CareRelationshipService {
 
     @Transactional
     public CareRelationshipDTO createRelationship(CareRelationshipDTO dto, UserPrincipal userPrincipal) {
-        // Verificar que el usuario actual sea un CAREGIVER
         User caregiver = userRepository.findById(userPrincipal.getId())
                 .orElseThrow(() -> new ResourceNotFoundException("Caregiver not found"));
 
@@ -29,7 +28,6 @@ public class CareRelationshipService {
             throw new BadRequestException("Only caregivers can create care relationships");
         }
 
-        // Verificar que el elderly exista
         User elderly = userRepository.findById(dto.getElderlyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Elderly user not found"));
 
@@ -37,7 +35,6 @@ public class CareRelationshipService {
             throw new BadRequestException("Target user must have ELDERLY role");
         }
 
-        // Crear la relación
         CareRelationship relationship = new CareRelationship();
         relationship.setCaregiverId(userPrincipal.getId());
         relationship.setElderlyId(dto.getElderlyId());
@@ -52,7 +49,6 @@ public class CareRelationshipService {
         CareRelationship relationship = careRelationshipRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Care relationship not found"));
 
-        // Verificar que el usuario actual sea el caregiver de esta relación
         if (!relationship.getCaregiverId().equals(userPrincipal.getId())) {
             throw new BadRequestException("You can only delete your own care relationships");
         }

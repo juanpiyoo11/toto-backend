@@ -18,7 +18,6 @@ public class SpotifyController {
         this.spotify = spotify;
     }
 
-    // ===== STATUS / DIAGNÓSTICO =====
     @GetMapping("/api/spotify/status")
     public ResponseEntity<?> status() {
         try {
@@ -33,8 +32,6 @@ public class SpotifyController {
         spotify.logout();
         return ResponseEntity.ok(Map.of("status","ok","message","Tokens limpiados. Volvé a conectar."));
     }
-
-    // ===== OAuth flow =====
 
     @GetMapping("/api/spotify/login")
     public ResponseEntity<Void> login() {
@@ -57,8 +54,6 @@ public class SpotifyController {
         }
     }
 
-    // ===== Dispositivos =====
-
     @GetMapping("/api/spotify/devices")
     public ResponseEntity<?> devices() {
         try {
@@ -69,8 +64,6 @@ public class SpotifyController {
         }
     }
 
-    // ===== Playback =====
-
     @PostMapping("/api/spotify/play")
     public ResponseEntity<?> play(@RequestBody Map<String, String> body) {
         String deviceId = body.getOrDefault("deviceId", null);
@@ -80,7 +73,6 @@ public class SpotifyController {
             spotify.play(deviceId, query, uri);
             return ResponseEntity.ok(Map.of("status","ok"));
         } catch (Exception e) {
-            // Normalizamos algunos mensajes para la app
             String msg = e.getMessage() == null ? "error" : e.getMessage();
             String code;
             if (msg.contains("PREMIUM_REQUIRED")) code = "PREMIUM_REQUIRED";

@@ -19,9 +19,9 @@ public class PendingReminderDTO {
     private Long elderlyId;
     private Reminder.ReminderType reminderType;
     private String title;
-    private String ttsMessage; // Pre-formatted message for Text-to-Speech
-    private LocalDateTime scheduledFor; // When it should have been announced
-    private Boolean isMedication; // Quick flag for medication confirmation flow
+    private String ttsMessage;
+    private LocalDateTime scheduledFor;
+    private Boolean isMedication;
     
     public static PendingReminderDTO fromReminder(Reminder reminder) {
         PendingReminderDTO dto = new PendingReminderDTO();
@@ -31,8 +31,7 @@ public class PendingReminderDTO {
         dto.setTitle(reminder.getTitle());
         dto.setScheduledFor(reminder.getEffectiveReminderTime());
         dto.setIsMedication(reminder.getReminderType() == Reminder.ReminderType.MEDICATION);
-        
-        // Format TTS message based on type
+
         dto.setTtsMessage(formatTtsMessage(reminder));
         
         return dto;
@@ -51,8 +50,7 @@ public class PendingReminderDTO {
             case APPOINTMENT:
                 msg.append("Recordatorio de cita: ");
                 msg.append(reminder.getTitle());
-                
-                // Add time for appointments
+
                 LocalDateTime eventTime = reminder.getReminderTime();
                 if (eventTime != null) {
                     int hour = eventTime.getHour();
@@ -67,8 +65,7 @@ public class PendingReminderDTO {
             case EVENT:
                 msg.append("Recordatorio de evento: ");
                 msg.append(reminder.getTitle());
-                
-                // Add time for events
+
                 eventTime = reminder.getReminderTime();
                 if (eventTime != null) {
                     int hour = eventTime.getHour();

@@ -42,28 +42,25 @@ public class Reminder {
     private String title;
 
     @Column(length = 1000)
-    private String description; // Free-form notes, no longer used for structured data
+    private String description;
 
     @Column(nullable = false)
-    private LocalDateTime reminderTime; // For appointments/events: actual time of the event. For medication: time to take it.
+    private LocalDateTime reminderTime;
 
     @Column(length = 20)
-    private String repeatPattern; // e.g., "DAILY", "WEEKLY", "MONTHLY", "NONE"
+    private String repeatPattern;
 
-    // Medication-specific fields
     @Column(length = 100)
     private String dosage;
 
-    // Appointment-specific fields
     @Column(length = 100)
     private String doctor;
 
-    // Appointment and Event fields
     @Column(length = 200)
     private String location;
 
     @Column(name = "lead_time_minutes")
-    private Integer leadTimeMinutes; // Minutes before event to trigger reminder (default: 30 for appointments/events)
+    private Integer leadTimeMinutes;
 
     @Column(nullable = false)
     private Boolean active = true;
@@ -76,11 +73,7 @@ public class Reminder {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    /**
-     * Calculates the effective reminder time considering lead time and repeat pattern.
-     * For MEDICATION: returns the next occurrence time based on repeat pattern
-     * For APPOINTMENT/EVENT: returns the next occurrence time - leadTimeMinutes
-     */
+
     public LocalDateTime getEffectiveReminderTime() {
         LocalDateTime nextOccurrence = calculateNextOccurrence();
         
@@ -91,17 +84,12 @@ public class Reminder {
         if (reminderType == ReminderType.MEDICATION) {
             return nextOccurrence;
         }
-        
-        // For appointments and events, subtract lead time
+
         int leadMinutes = (leadTimeMinutes != null && leadTimeMinutes > 0) ? leadTimeMinutes : 30;
         return nextOccurrence.minusMinutes(leadMinutes);
     }
     
-    /**
-     * Calculates the next occurrence of this reminder based on its repeat pattern.
-     * For one-time reminders: returns reminderTime as-is
-     * For recurring reminders: calculates the next occurrence from today
-     */
+
     private LocalDateTime calculateNextOccurrence() {
         if (reminderTime == null) {
             return null;
@@ -110,29 +98,26 @@ public class Reminder {
         String pattern = repeatPattern != null ? repeatPattern.toLowerCase() : "once";
         LocalDateTime now = LocalDateTime.now();
         
-        // One-time reminder: use original time
+
         if ("once".equals(pattern)) {
             return reminderTime;
         }
         
-        // For recurring reminders, calculate next occurrence
+
         LocalDateTime baseTime = reminderTime;
         
         if ("daily".equals(pattern)) {
-            // Use today's date with the reminder's time
             LocalDateTime todayOccurrence = LocalDateTime.of(
                 now.toLocalDate(),
                 baseTime.toLocalTime()
             );
-            
-            // If today's time already passed, it's for tomorrow
+
             if (todayOccurrence.isBefore(now)) {
                 return todayOccurrence.plusDays(1);
             }
             return todayOccurrence;
             
         } else if ("weekly".equals(pattern)) {
-            // Find next occurrence of the same day of week
             LocalDateTime candidate = LocalDateTime.of(
                 now.toLocalDate(),
                 baseTime.toLocalTime()
@@ -144,7 +129,6 @@ public class Reminder {
             return candidate;
             
         } else if ("monthly".equals(pattern)) {
-            // Find next occurrence of the same day of month
             LocalDateTime candidate = LocalDateTime.of(
                 now.getYear(),
                 now.getMonth(),
@@ -154,7 +138,6 @@ public class Reminder {
             );
             
             if (candidate.isBefore(now)) {
-                // Try next month
                 candidate = candidate.plusMonths(1);
                 candidate = LocalDateTime.of(
                     candidate.getYear(),
@@ -167,7 +150,6 @@ public class Reminder {
             return candidate;
             
         } else if ("yearly".equals(pattern)) {
-            // Find next occurrence of the same month and day
             LocalDateTime candidate = LocalDateTime.of(
                 now.getYear(),
                 baseTime.getMonth(),
@@ -181,8 +163,7 @@ public class Reminder {
             }
             return candidate;
         }
-        
-        // Default: return original time
+
         return reminderTime;
     }
 }

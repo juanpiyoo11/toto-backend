@@ -35,13 +35,13 @@ public class User {
     private String phone;
 
     @Column(length = 20, nullable = false)
-    private String role; // ELDERLY or CAREGIVER
+    private String role;
 
     @Column(length = 500)
     private String address;
 
     @Column(length = 10)
-    private String birthdate; // DD/MM/YYYY format
+    private String birthdate;
 
     @Column(length = 1000)
     private String medicalInfo;

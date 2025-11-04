@@ -40,23 +40,10 @@ public class BootstrapService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    /**
-     * Seeds the database with initial test data if it's empty.
-     * Creates:
-     * - 1 caregiver user (Tamara Gonzales)
-     * - 1 elderly user (María González)
-     * - 1 care relationship linking them
-     * - 1 contact for the elderly user
-     * - 1 reminder for the elderly user
-     * - 1 history event for the elderly user
-     *
-     * @return Map with counts of created entities
-     */
     @Transactional
     public Map<String, Object> seedDatabase() {
         Map<String, Object> result = new HashMap<>();
 
-        // Check if database already has data
         long userCount = userRepository.count();
         if (userCount > 0) {
             log.info("Database already contains {} users. Skipping seed.", userCount);
@@ -68,7 +55,6 @@ public class BootstrapService {
 
         log.info("Starting database seeding...");
 
-        // Create Caregiver User
         User caregiver = new User();
         caregiver.setName("Tamara Gonzales");
         caregiver.setEmail("tamara@toto.com");
@@ -79,7 +65,6 @@ public class BootstrapService {
         caregiver = userRepository.save(caregiver);
         log.info("Created caregiver: {} (ID: {})", caregiver.getEmail(), caregiver.getId());
 
-        // Create Elderly User
         User elderly = new User();
         elderly.setName("María González");
         elderly.setEmail("maria@toto.com");
@@ -92,7 +77,6 @@ public class BootstrapService {
         elderly = userRepository.save(elderly);
         log.info("Created elderly user: {} (ID: {})", elderly.getEmail(), elderly.getId());
 
-        // Create Care Relationship
         CareRelationship relationship = new CareRelationship();
         relationship.setCaregiverId(caregiver.getId());
         relationship.setElderlyId(elderly.getId());
@@ -100,7 +84,6 @@ public class BootstrapService {
         relationship = careRelationshipRepository.save(relationship);
         log.info("Created care relationship: Caregiver {} -> Elderly {}", caregiver.getId(), elderly.getId());
 
-        // Create Contact
         Contact contact = new Contact();
         contact.setElderlyId(elderly.getId());
         contact.setName("Dr. Roberto Pérez");
@@ -109,7 +92,6 @@ public class BootstrapService {
         contact = contactRepository.save(contact);
         log.info("Created contact: {} for elderly {}", contact.getName(), elderly.getId());
 
-        // Create Reminder
         Reminder reminder = new Reminder();
         reminder.setElderlyId(elderly.getId());
         reminder.setTitle("Tomar medicación matutina");
@@ -120,7 +102,6 @@ public class BootstrapService {
         reminder = reminderRepository.save(reminder);
         log.info("Created reminder: {} for elderly {}", reminder.getTitle(), elderly.getId());
 
-        // Create History Event
         HistoryEvent event = new HistoryEvent();
         event.setUserId(elderly.getId());
         event.setEventType("MEDICATION_TAKEN");
@@ -145,12 +126,6 @@ public class BootstrapService {
         return result;
     }
 
-    /**
-     * Clears all data from the database.
-     * USE WITH CAUTION - This will delete all data!
-     *
-     * @return Map with counts of deleted entities
-     */
     @Transactional
     public Map<String, Object> clearDatabase() {
         log.warn("Starting database clear operation...");

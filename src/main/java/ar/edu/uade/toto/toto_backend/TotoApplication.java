@@ -9,7 +9,6 @@ import java.util.TimeZone;
 public class TotoApplication {
 
 	public static void main(String[] args) {
-		// Set default timezone for the entire application
 		TimeZone.setDefault(TimeZone.getTimeZone("America/Argentina/Buenos_Aires"));
 		SpringApplication.run(TotoApplication.class, args);
 	}

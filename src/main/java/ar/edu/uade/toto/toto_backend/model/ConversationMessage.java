@@ -4,7 +4,7 @@ package ar.edu.uade.toto.toto_backend.model;
  * Representa un mensaje individual en una conversación.
  */
 public class ConversationMessage {
-    private final String role;  // "user", "assistant", "system"
+    private final String role;
     private final String content;
     private final long timestamp;
 

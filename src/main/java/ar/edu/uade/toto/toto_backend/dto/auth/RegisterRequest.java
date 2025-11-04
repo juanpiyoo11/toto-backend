@@ -10,14 +10,13 @@ public class RegisterRequest {
     @NotBlank(message = "El nombre es obligatorio")
     private String name;
 
-    // Email y password validados por @ValidateElderlyCredentials según el rol
     private String email;
     private String password;
 
     private String phone;
 
     @NotBlank(message = "El rol es obligatorio")
-    private String role; // ELDERLY or CAREGIVER
+    private String role;
 
     private String birthdate;
     private String address;

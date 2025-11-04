@@ -44,7 +44,7 @@ public class OpenAISTTService {
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("file", safeName(audio.getOriginalFilename()), fileBody)
                 .addFormDataPart("model", sttModel)
-                .addFormDataPart("language", language)   // ej: "es"
+                .addFormDataPart("language", language)
                 .build();
 
         Request request = new Request.Builder()
@@ -60,11 +60,9 @@ public class OpenAISTTService {
             }
             String json = resp.body().string();
 
-            // Respuesta típica de OpenAI STT: { "text": "..." }
             JsonNode root = mapper.readTree(json);
             String text = root.path("text").asText("");
 
-            // Fallback: si no vino "text" pero hay "segments", los unimos
             if (text.isBlank() && root.has("segments") && root.get("segments").isArray()) {
                 StringBuilder sb = new StringBuilder();
                 for (JsonNode seg : root.get("segments")) {

@@ -34,7 +34,6 @@ public class DataInitializer {
     @Bean
     public CommandLineRunner initializeData() {
         return args -> {
-            // Check if users already exist
             if (userRepository.existsByEmail("tamara.m94@hotmail.com")) {
                 log.info("Initial data already exists, skipping initialization");
                 return;
@@ -42,11 +41,10 @@ public class DataInitializer {
 
             log.info("Initializing database with sample users and relationships...");
 
-            // Create elderly user (Juan Pablo Yoo)
             User elderly = new User();
             elderly.setName("Juan Pablo Yoo");
-            elderly.setEmail(null); // Elderly users don't need email (use access token)
-            elderly.setPassword(null); // Elderly users don't need password (use access token)
+            elderly.setEmail(null);
+            elderly.setPassword(null);
             elderly.setPhone("+5491158550932");
             elderly.setRole("ELDERLY");
             elderly.setAddress("Lima 757, CABA");
@@ -56,7 +54,6 @@ public class DataInitializer {
             elderly = userRepository.save(elderly);
             log.info("Created elderly user: {}", elderly.getName());
 
-            // Create caregiver user (Tamara Merchan)
             User caregiver = new User();
             caregiver.setName("Tamara Merchan");
             caregiver.setEmail("tamara.m94@hotmail.com");
@@ -70,17 +67,15 @@ public class DataInitializer {
             caregiver = userRepository.save(caregiver);
             log.info("Created caregiver user: {}", caregiver.getName());
 
-            // Create care relationship
             CareRelationship relationship = new CareRelationship();
             relationship.setCaregiverId(caregiver.getId());
             relationship.setElderlyId(elderly.getId());
-            relationship.setRelationship("Familiar"); // Could be "Hija", "Hijo", "Cuidador", etc.
+            relationship.setRelationship("Familiar");
 
             careRelationshipRepository.save(relationship);
             log.info("Created care relationship: {} -> {}", caregiver.getName(), elderly.getName());
 
-            // Generate access token for elderly user (6-digit code)
-            String token = "123456"; // Fixed token for testing
+            String token = "123456";
             AccessToken accessToken = new AccessToken();
             accessToken.setToken(token);
             accessToken.setElderlyUserId(elderly.getId());

@@ -23,13 +23,13 @@ public class AccessToken {
     private Long id;
 
     @Column(unique = true, nullable = false, length = 6)
-    private String token; // 6-digit numeric token
+    private String token;
 
     @Column(name = "elderly_user_id", nullable = false)
-    private Long elderlyUserId; // The elderly person this token belongs to
+    private Long elderlyUserId;
 
     @Column(name = "caregiver_user_id", nullable = false)
-    private Long caregiverUserId; // The caregiver who generated this token
+    private Long caregiverUserId;
 
     @Column(nullable = false)
     private boolean active = true;

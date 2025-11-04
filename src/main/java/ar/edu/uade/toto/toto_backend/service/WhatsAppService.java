@@ -29,20 +29,16 @@ public class WhatsAppService {
     private final String phoneId;
     private final String graphVersion;
 
-    // Normalización
     private final String defaultRegion;
     private final boolean drop9ForAr;
 
-    // Template de apertura (1 parámetro: el texto)
     private final String openTemplateName;
     private final String openTemplateLang;
 
-    /** (#131030) Recipient phone number not in allowed list */
     public static class RecipientNotAllowedException extends Exception {
         public RecipientNotAllowedException(String message) { super(message); }
     }
 
-    /** Texto libre no permitido para iniciar conversación (fuera de 24h → requiere template) */
     public static class ConversationNotOpenException extends Exception {
         public ConversationNotOpenException(String message) { super(message); }
     }
@@ -73,14 +69,12 @@ public class WhatsAppService {
         log.info("🧩 Template apertura: name='{}' lang={}", this.openTemplateName, this.openTemplateLang);
     }
 
-    /** Envía un mensaje de texto simple. Devuelve el messageId de WhatsApp. */
     public String sendText(String toRaw, String text, boolean previewUrl) throws Exception {
         if (token == null || token.isBlank() || phoneId == null || phoneId.isBlank()) {
             throw new IllegalStateException("WA_TOKEN/WA_PHONE_ID no configurados en variables de entorno.");
         }
         if (text == null || text.isBlank()) throw new IllegalArgumentException("Texto vacío.");
 
-        // Normalización robusta → dígitos E.164 SIN '+'
         String to = normalizeForWhatsApp(toRaw);
         if (to.isBlank()) throw new IllegalArgumentException("Número destino inválido: " + safe(toRaw));
 
@@ -109,7 +103,6 @@ public class WhatsAppService {
             String body = resp.body() != null ? resp.body().string() : "";
             if (!resp.isSuccessful()) {
                 log.warn("❌ WhatsApp API {}: {}", resp.code(), body);
-                // Mapeo de errores comunes
                 try {
                     JsonNode root = mapper.readTree(body);
                     int code = root.path("error").path("code").asInt(0);
@@ -121,7 +114,6 @@ public class WhatsAppService {
                         throw new RecipientNotAllowedException(msg.isEmpty() ? "Recipient not allowed" : msg);
                     }
 
-                    // Heurística: casos que requieren template para abrir conversación
                     String all = (msg + " " + details).toLowerCase();
                     boolean looks24h = code == 470 || code == 131047 || sub == 2018001
                             || all.contains("24 hour") || all.contains("24-hour")
@@ -150,7 +142,6 @@ public class WhatsAppService {
         }
     }
 
-    /** Envia template de apertura con 1 parámetro de cuerpo: el texto del mensaje. */
     public String sendTemplateOpenText(String toRaw, String textParam) throws Exception {
         if (token == null || token.isBlank() || phoneId == null || phoneId.isBlank()) {
             throw new IllegalStateException("WA_TOKEN/WA_PHONE_ID no configurados en variables de entorno.");
@@ -162,19 +153,6 @@ public class WhatsAppService {
 
         String url = "https://graph.facebook.com/" + graphVersion + "/" + phoneId + "/messages";
 
-        // Payload template:
-        // {
-        //   "messaging_product": "whatsapp",
-        //   "to": "5411...",
-        //   "type": "template",
-        //   "template": {
-        //     "name": "<openTemplateName>",
-        //     "language": { "code": "<openTemplateLang>" },
-        //     "components": [
-        //        { "type":"body", "parameters":[ { "type":"text", "text": textParam } ] }
-        //     ]
-        //   }
-        // }
         Map<String, Object> bodyParam = new HashMap<>();
         bodyParam.put("type", "text");
         bodyParam.put("text", textParam);
@@ -233,13 +211,6 @@ public class WhatsAppService {
         }
     }
 
-    /**
-     * Normaliza un número al formato que requiere la API de Meta:
-     * - Parseo con libphonenumber (región por defecto configurable).
-     * - Formateo a E.164 (+5411…).
-     * - Regla opcional para Argentina: si drop9ForAr=true, +549→+54.
-     * - Se remueve el '+' para cumplir con la API (quiere solo dígitos).
-     */
     private String normalizeForWhatsApp(String raw) {
         if (raw == null) return "";
         String s = raw.trim();
@@ -249,13 +220,12 @@ public class WhatsAppService {
             Phonenumber.PhoneNumber proto = util.parse(s, defaultRegion);
             if (!util.isValidNumber(proto)) throw new NumberParseException(NumberParseException.ErrorType.NOT_A_NUMBER, "invalid");
 
-            String e164 = util.format(proto, PhoneNumberFormat.E164); // ej: +54911... o +5411...
+            String e164 = util.format(proto, PhoneNumberFormat.E164);
             if (drop9ForAr && e164.startsWith("+549")) {
-                e164 = "+54" + e164.substring(4); // quita el '9'
+                e164 = "+54" + e164.substring(4);
             }
             return e164.startsWith("+") ? e164.substring(1) : e164;
         } catch (NumberParseException e) {
-            // Fallback simple
             String digits = s.replaceAll("[^0-9]", "");
             if ("AR".equalsIgnoreCase(defaultRegion)) {
                 if (drop9ForAr && digits.startsWith("549")) digits = "54" + digits.substring(3);

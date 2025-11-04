@@ -31,17 +31,14 @@ public class ReminderDTO {
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime reminderTime;
 
-    private String repeatPattern; // DAILY, WEEKLY, MONTHLY, NONE
+    private String repeatPattern;
 
-    // Medication-specific
     private String dosage;
 
-    // Appointment-specific
     private String doctor;
 
-    // Appointment and Event specific
     private String location;
-    private Integer leadTimeMinutes; // Default: 30 for appointments/events
+    private Integer leadTimeMinutes;
 
     private Boolean active = true;
 
@@ -78,8 +75,7 @@ public class ReminderDTO {
         reminder.setDosage(this.dosage);
         reminder.setDoctor(this.doctor);
         reminder.setLocation(this.location);
-        
-        // Set default lead time for appointments and events
+
         if (this.reminderType == Reminder.ReminderType.APPOINTMENT || this.reminderType == Reminder.ReminderType.EVENT) {
             reminder.setLeadTimeMinutes(this.leadTimeMinutes != null ? this.leadTimeMinutes : 30);
         } else {

@@ -19,7 +19,7 @@ public class UpdateProfileRequest {
     @Size(max = 500)
     private String address;
 
-    private String birthdate; // DD/MM/YYYY
+    private String birthdate;
 
     @Size(max = 1000)
     private String medicalInfo;

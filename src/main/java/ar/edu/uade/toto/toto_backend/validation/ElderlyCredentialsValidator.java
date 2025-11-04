@@ -8,7 +8,6 @@ public class ElderlyCredentialsValidator implements ConstraintValidator<Validate
 
     @Override
     public void initialize(ValidateElderlyCredentials constraintAnnotation) {
-        // No initialization needed
     }
 
     @Override
@@ -20,7 +19,6 @@ public class ElderlyCredentialsValidator implements ConstraintValidator<Validate
         String role = request.getRole();
         
         if ("CAREGIVER".equals(role)) {
-            // CAREGIVER must have email and password
             if (request.getEmail() == null || request.getEmail().trim().isEmpty()) {
                 context.disableDefaultConstraintViolation();
                 context.buildConstraintViolationWithTemplate("El email es obligatorio para CAREGIVER")
@@ -37,7 +35,6 @@ public class ElderlyCredentialsValidator implements ConstraintValidator<Validate
                 return false;
             }
             
-            // Validate email format for CAREGIVER
             if (!isValidEmail(request.getEmail())) {
                 context.disableDefaultConstraintViolation();
                 context.buildConstraintViolationWithTemplate("Formato de email inválido")
@@ -46,7 +43,6 @@ public class ElderlyCredentialsValidator implements ConstraintValidator<Validate
                 return false;
             }
             
-            // Validate password length for CAREGIVER
             if (request.getPassword().length() < 6) {
                 context.disableDefaultConstraintViolation();
                 context.buildConstraintViolationWithTemplate("La contraseña debe tener al menos 6 caracteres")
@@ -56,7 +52,6 @@ public class ElderlyCredentialsValidator implements ConstraintValidator<Validate
             }
         }
         
-        // ELDERLY can have null email and password
         return true;
     }
     

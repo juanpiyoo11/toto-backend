@@ -4,10 +4,9 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class SpotifyTokenStore {
-    // Demo: un solo “perfil”
     private volatile String accessToken;
     private volatile String refreshToken;
-    private volatile long   expiresAtMs; // epoch ms
+    private volatile long   expiresAtMs;
     private volatile String tokenType;
     private volatile String scope;
 
@@ -16,7 +15,7 @@ public class SpotifyTokenStore {
         if (refreshToken != null && !refreshToken.isBlank()) {
             this.refreshToken = refreshToken;
         }
-        this.expiresAtMs = System.currentTimeMillis() + (expiresInSec - 30) * 1000L; // -30s margen
+        this.expiresAtMs = System.currentTimeMillis() + (expiresInSec - 30) * 1000L;
         this.tokenType = tokenType;
         this.scope = scope;
     }

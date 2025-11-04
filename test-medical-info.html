@@ -35,8 +35,7 @@
                 const result = await response.json();
                 console.log('Respuesta:', result);
                 document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
-                
-                // También mostrar el usuario creado
+
                 if (result.user) {
                     console.log('Usuario creado con medicalInfo:', result.user.medicalInfo);
                 }

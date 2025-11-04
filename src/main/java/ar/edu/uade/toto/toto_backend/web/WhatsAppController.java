@@ -22,7 +22,6 @@ public class WhatsAppController {
     @PostMapping("/send")
     public ResponseEntity<SendMessageResponse> send(@RequestBody SendMessageRequest req) {
         try {
-            // SIEMPRE abrimos conversación con template y mandamos el texto en {{1}}
             String idTpl = wa.sendTemplateOpenText(req.to, req.text);
             return ResponseEntity.ok(new SendMessageResponse(idTpl, "ok_template"));
         } catch (WhatsAppService.RecipientNotAllowedException rna) {

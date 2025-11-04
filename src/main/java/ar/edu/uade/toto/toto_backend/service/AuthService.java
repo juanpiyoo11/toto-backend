@@ -52,7 +52,6 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
-        // Validar email solo si no es null
         if (request.getEmail() != null && userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("El email ya está registrado");
         }
@@ -61,7 +60,6 @@ public class AuthService {
             throw new BadRequestException("Rol inválido. Debe ser ELDERLY o CAREGIVER");
         }
 
-        // Validaciones específicas por rol
         if (request.getRole().equals("CAREGIVER")) {
             if (request.getEmail() == null || request.getPassword() == null) {
                 throw new BadRequestException("CAREGIVER debe tener email y contraseña");
@@ -72,7 +70,6 @@ public class AuthService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         
-        // Solo encriptar password si no es null
         if (request.getPassword() != null) {
             user.setPassword(passwordEncoder.encode(request.getPassword()));
         }
@@ -85,7 +82,6 @@ public class AuthService {
 
         user = userRepository.save(user);
 
-        // Solo generar tokens si es un CAREGIVER (que tiene credenciales)
         if (request.getRole().equals("CAREGIVER") && request.getEmail() != null && request.getPassword() != null) {
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
@@ -95,7 +91,6 @@ public class AuthService {
 
             return new LoginResponse(accessToken, refreshToken, UserDTO.fromEntity(user));
         } else {
-            // Para ELDERLY sin credenciales, devolver respuesta sin tokens
             return new LoginResponse(null, null, UserDTO.fromEntity(user));
         }
     }
@@ -128,15 +123,12 @@ public class AuthService {
                 .findByTokenAndActiveTrue(request.getToken())
                 .orElseThrow(() -> new BadRequestException("Código inválido o inactivo"));
 
-        // Update last used timestamp
         accessToken.setLastUsedAt(java.time.LocalDateTime.now());
         accessTokenRepository.save(accessToken);
 
-        // Get elderly user
         User user = userRepository.findById(accessToken.getElderlyUserId())
                 .orElseThrow(() -> new BadRequestException("Usuario no encontrado"));
 
-        // Generate JWT tokens
         UserPrincipal userPrincipal = UserPrincipal.create(user);
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userPrincipal, null, userPrincipal.getAuthorities());
@@ -149,7 +141,6 @@ public class AuthService {
 
     @Transactional
     public String generateAccessToken(Long elderlyUserId, Long caregiverUserId) {
-        // Generate 6-digit unique token
         String token;
         do {
             token = String.format("%06d", (int) (Math.random() * 1000000));
@@ -183,14 +174,12 @@ public class AuthService {
     public UserDTO getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         
-        // Handle different principal types
         Object principal = authentication.getPrincipal();
         Long userId;
         
         if (principal instanceof UserPrincipal) {
             userId = ((UserPrincipal) principal).getId();
         } else if (principal instanceof String) {
-            // Sometimes Spring Security stores the username/id as a String
             try {
                 userId = Long.parseLong((String) principal);
             } catch (NumberFormatException e) {

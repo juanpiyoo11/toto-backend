@@ -18,12 +18,7 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
-/**
- * Service for managing reminder notifications and tracking.
- * Coordinates with the scheduler to determine which reminders should be triggered.
- */
 @Service
 public class ReminderNotificationService {
 
@@ -38,10 +33,6 @@ public class ReminderNotificationService {
     @Autowired
     private ObjectMapper objectMapper;
 
-    /**
-     * Get pending reminders for a specific elderly person that haven't been announced yet today.
-     * This is called by the Android app via polling.
-     */
     @Transactional(readOnly = true)
     public List<PendingReminderDTO> getPendingRemindersForElderly(Long elderlyId) {
         LocalDateTime now = LocalDateTime.now();
@@ -62,15 +53,6 @@ public class ReminderNotificationService {
         return pending;
     }
 
-    /**
-     * Determines if a reminder should be triggered based on its effective time and whether
-     * it has already been announced today.
-     * 
-     * Logic:
-     * - MEDICATION: Triggers exactly at reminderTime (no early window)
-     * - APPOINTMENT/EVENT: Triggers at reminderTime - leadTimeMinutes (no early window)
-     * - All types: Allow up to 60 minutes late for missed reminders
-     */
     private boolean shouldTriggerReminder(Reminder reminder, LocalDateTime now) {
         LocalDateTime effectiveTime = reminder.getEffectiveReminderTime();
         
@@ -79,28 +61,22 @@ public class ReminderNotificationService {
             return false;
         }
         
-        // Calculate minutes difference
         long minutesUntil = ChronoUnit.MINUTES.between(now, effectiveTime);
         
         log.info("Reminder {} ({}): type={}, repeat={}, effectiveTime={}, minutesUntil={}", 
                   reminder.getId(), reminder.getTitle(), reminder.getReminderType(), 
                   reminder.getRepeatPattern(), effectiveTime, minutesUntil);
         
-        // For MEDICATION: trigger exactly at time (0 min early, up to 60 min late)
-        // For APPOINTMENT/EVENT: trigger at effectiveTime (already includes leadTime subtraction)
         if (minutesUntil > 0) {
-            // Not yet time - don't trigger
             log.info("Reminder {} not yet time (minutesUntil={})", reminder.getId(), minutesUntil);
             return false;
         }
         
         if (minutesUntil < -60) {
-            // More than 1 hour late - too late
             log.info("Reminder {} too late (minutesUntil={})", reminder.getId(), minutesUntil);
             return false;
         }
         
-        // Check if already announced today
         if (wasAnnouncedToday(reminder)) {
             log.info("Reminder {} already announced today", reminder.getId());
             return false;
@@ -110,9 +86,6 @@ public class ReminderNotificationService {
         return true;
     }
 
-    /**
-     * Check if a reminder was already announced today by looking at history events.
-     */
     private boolean wasAnnouncedToday(Reminder reminder) {
         LocalDateTime startOfDay = LocalDate.now().atStartOfDay();
         LocalDateTime endOfDay = startOfDay.plusDays(1);
@@ -125,7 +98,6 @@ public class ReminderNotificationService {
                         endOfDay
                 );
         
-        // Check if any event matches this reminder
         for (HistoryEvent event : todayEvents) {
             if (event.getDetails() != null && event.getDetails().contains("\"reminderId\":" + reminder.getId())) {
                 return true;
@@ -135,15 +107,9 @@ public class ReminderNotificationService {
         return false;
     }
 
-    /**
-     * Mark a reminder as announced by creating a history event.
-     * Auto-deactivates one-time reminders after announcement.
-     * Called after the Android app confirms it has announced the reminder to the user.
-     */
     @Transactional
     public void markReminderAnnounced(Long reminderId, Long elderlyId) {
         try {
-            // Get the reminder to check its repeat pattern
             Reminder reminder = reminderRepository.findById(reminderId).orElse(null);
             
             log.info("Marking reminder announced - reminderId: {}, reminder: {}, title: {}", 
@@ -169,7 +135,6 @@ public class ReminderNotificationService {
             historyEventRepository.save(event);
             log.info("Marked reminder {} as announced for elderlyId={}", reminderId, elderlyId);
             
-            // Auto-deactivate if it's a one-time reminder
             if (reminder != null && "once".equalsIgnoreCase(reminder.getRepeatPattern())) {
                 reminder.setActive(false);
                 reminderRepository.save(reminder);
@@ -180,10 +145,6 @@ public class ReminderNotificationService {
         }
     }
 
-    /**
-     * Record that a medication was taken.
-     * Called when the user confirms they took the medication.
-     */
     @Transactional
     public void recordMedicationTaken(Long reminderId, Long elderlyId, String notes) {
         try {
@@ -219,10 +180,6 @@ public class ReminderNotificationService {
         }
     }
 
-    /**
-     * Record that a medication was skipped/not taken.
-     * Called when the user says they didn't take the medication.
-     */
     @Transactional
     public void recordMedicationSkipped(Long reminderId, Long elderlyId, String reason) {
         try {
@@ -258,13 +215,6 @@ public class ReminderNotificationService {
         }
     }
 
-    /**
-     * Update a reminder for the next occurrence based on its repeat pattern.
-     * For DAILY reminders: add 1 day
-     * For WEEKLY: add 7 days
-     * For MONTHLY: add 1 month
-     * For NONE: deactivate
-     */
     @Transactional
     public void scheduleNextOccurrence(Long reminderId) {
         try {
@@ -275,7 +225,6 @@ public class ReminderNotificationService {
             
             String pattern = reminder.getRepeatPattern();
             if ("NONE".equals(pattern)) {
-                // One-time reminder, deactivate after triggering
                 reminder.setActive(false);
                 reminderRepository.save(reminder);
                 log.info("Deactivated one-time reminder: {}", reminderId);

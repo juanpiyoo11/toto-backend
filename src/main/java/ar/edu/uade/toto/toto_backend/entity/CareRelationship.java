@@ -31,7 +31,7 @@ public class CareRelationship {
     private Long elderlyId;
 
     @Column(length = 50)
-    private String relationship; // e.g., "Hija", "Hijo", "Familiar", "Cuidador"
+    private String relationship;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

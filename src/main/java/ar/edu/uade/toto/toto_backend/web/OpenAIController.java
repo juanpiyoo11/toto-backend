@@ -41,17 +41,13 @@ public class OpenAIController {
                         : "default-user";
         
         try {
-            // Obtener historial de conversación
             List<ConversationMessage> history = conversationMemory.getHistory(userId);
             
-            // Hacer pregunta a OpenAI con contexto
             String reply = prompts.ask(prompt, history);
             
-            // Guardar el intercambio en la memoria
             conversationMemory.addMessage(userId, "user", prompt);
             conversationMemory.addMessage(userId, "assistant", reply);
             
-            // Obtener session ID para debugging
             String sessionId = conversationMemory.getCurrentSessionId(userId);
             
             return new AskResponse(reply, sessionId);

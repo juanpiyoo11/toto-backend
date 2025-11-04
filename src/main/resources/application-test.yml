@@ -29,8 +29,8 @@ spotify:
 
 jwt:
   secret: test-secret-key-for-jwt-signing-must-be-at-least-512-bits-long-for-hs512-algorithm
-  access-token-expiry-ms: 3600000  # 1 hour
-  refresh-token-expiry-ms: 604800000  # 7 days
+  access-token-expiry-ms: 3600000
+  refresh-token-expiry-ms: 604800000
   issuer: toto-backend
 
 spring:

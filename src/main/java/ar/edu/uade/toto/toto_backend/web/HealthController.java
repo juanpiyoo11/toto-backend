@@ -22,7 +22,6 @@ public class HealthController {
             long uptime = ManagementFactory.getRuntimeMXBean().getUptime();
             out.put("uptime_ms", uptime);
         } catch (Exception ignored) {
-            // ignore if not available
         }
         out.put("app", "toto-backend");
         return ResponseEntity.ok(out);

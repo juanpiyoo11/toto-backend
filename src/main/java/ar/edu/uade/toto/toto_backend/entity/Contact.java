@@ -29,7 +29,7 @@ public class Contact {
     private String name;
 
     @Column(length = 50)
-    private String relationship; // e.g., "Hijo", "Médico", "Vecino"
+    private String relationship;
 
     @Column(nullable = false, length = 20)
     private String phone;

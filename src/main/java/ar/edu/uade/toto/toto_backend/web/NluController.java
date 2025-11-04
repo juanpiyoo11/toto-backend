@@ -28,7 +28,6 @@ public class NluController {
             }
             return nlu.route(body);
         } catch (Exception e) {
-            // Nunca propagamos 500 al cliente
             NluRouteResponse r = new NluRouteResponse();
             r.intent = "ANSWER";
             r.confidence = 0.0;
