@@ -144,12 +144,13 @@ public class NluService {
                             "    - \"event\" si pregunta por eventos/actividades.\n" +
                             "    - null si pregunta genéricamente por \"recordatorios\" o \"qué tengo\".\n" +
                             "  * slots.datetime_iso: extrae la fecha consultada en formato ISO (YYYY-MM-DD):\n" +
-                            "    - Si dice \"hoy\" o no especifica fecha → SIEMPRE usa la fecha actual calculada de now_epoch_ms y tz.\n" +
-                            "    - Si dice \"mañana\" → fecha actual + 1 día (calculado de now_epoch_ms).\n" +
-                            "    - Si dice \"pasado mañana\" → fecha actual + 2 días (calculado de now_epoch_ms).\n" +
+                            "    - CRÍTICO: NUNCA copies fechas de los ejemplos. SIEMPRE calcula la fecha desde now_epoch_ms proporcionado.\n" +
+                            "    - Si dice \"hoy\" o no especifica fecha → Convierte now_epoch_ms a fecha en timezone tz (ejemplo: now_epoch_ms=1730682000000, tz='America/Argentina/Buenos_Aires' → '2025-11-03').\n" +
+                            "    - Si dice \"mañana\" → Convierte now_epoch_ms a fecha en tz, luego suma 1 día.\n" +
+                            "    - Si dice \"pasado mañana\" → Convierte now_epoch_ms a fecha en tz, luego suma 2 días.\n" +
                             "    - Si menciona día de la semana (\"el lunes\", \"el martes\") → calcula la fecha del próximo día desde now_epoch_ms.\n" +
                             "    - Si menciona fecha específica → convierte a ISO.\n" +
-                            "    - IMPORTANTE: SIEMPRE incluí datetime_iso, nunca lo dejes null. Si es \"hoy\" o sin especificar, usa la fecha actual.\n" +
+                            "    - IMPORTANTE: SIEMPRE incluí datetime_iso, nunca lo dejes null. Si es \"hoy\" o sin especificar, usa la fecha actual calculada desde now_epoch_ms.\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
                             "  * IMPORTANTE: Si el contexto indica awaiting_medication_confirmation=true, cualquier respuesta afirmativa corta (\"sí\", \"ya\", \"listo\", \"ok\") debe ser CONFIRM_MEDICATION.\n" +
                             "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
@@ -304,28 +305,39 @@ public class NluService {
  "slots":{"message_text":"tengo que tomar la aspirina a las 3 de la tarde","reminder_title":"tomar la aspirina","reminder_type":"medication","repeat_pattern":"once","hour":15,"minute":0},
  "ack_tts":"Listo, te anoto el recordatorio.","clarifying_question":null,"safety_notes":null}""");
             
-            // IMPORTANT: The dates below are examples. When processing real queries, ALWAYS calculate the date from now_epoch_ms + tz
-            // For "hoy" queries, compute current date from now_epoch_ms; for "mañana", compute current date + 1 day
-            ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy\ntz: America/Argentina/Buenos_Aires\nnow_epoch_ms: 1698782400000");
-            ObjectNode rem3A = objectMsg("assistant", """
+            // IMPORTANT: The dates below are examples showing HOW to calculate dates, not literal values to copy.
+            // ALWAYS calculate datetime_iso from now_epoch_ms + tz dynamically for each query:
+            // - "hoy" → convert now_epoch_ms to date in tz
+            // - "mañana" → convert now_epoch_ms to date in tz, then add 1 day
+            // DO NOT copy the example dates (2025-11-03, 2025-11-04), compute them fresh each time!
+            
+            // Calculate current date for examples (this shows the MODEL how to do it)
+            java.time.LocalDate exampleToday = java.time.Instant.ofEpochMilli(nowMs)
+                .atZone(java.time.ZoneId.of(tz))
+                .toLocalDate();
+            String exampleTodayStr = exampleToday.toString(); // e.g., "2025-11-03"
+            String exampleTomorrowStr = exampleToday.plusDays(1).toString(); // e.g., "2025-11-04"
+            
+            ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy\ntz: " + tz + "\nnow_epoch_ms: " + nowMs);
+            ObjectNode rem3A = objectMsg("assistant", String.format("""
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
- "slots":{"query_reminder_type":"medication","datetime_iso":"2023-10-31"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+ "slots":{"query_reminder_type":"medication","datetime_iso":"%s"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""", exampleTodayStr));
             ObjectNode rem4U = objectMsg("user", "Mis recordatorios");
             ObjectNode rem4A = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.97,"needs_confirmation":false,
  "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode rem4bU = objectMsg("user", "Qué eventos tengo hoy");
-            ObjectNode rem4bA = objectMsg("assistant", """
+            ObjectNode rem4bU = objectMsg("user", "Qué eventos tengo hoy\ntz: " + tz + "\nnow_epoch_ms: " + nowMs);
+            ObjectNode rem4bA = objectMsg("assistant", String.format("""
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
- "slots":{"query_reminder_type":"event","datetime_iso":"2023-10-31"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+ "slots":{"query_reminder_type":"event","datetime_iso":"%s"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""", exampleTodayStr));
             ObjectNode rem4cU = objectMsg("user", "Qué citas tengo anotadas");
             ObjectNode rem4cA = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
  "slots":{"query_reminder_type":"appointment"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode rem4dU = objectMsg("user", "Qué medicamentos tengo que tomar mañana\ntz: America/Argentina/Buenos_Aires\nnow_epoch_ms: 1698782400000");
-            ObjectNode rem4dA = objectMsg("assistant", """
+            ObjectNode rem4dU = objectMsg("user", "Qué medicamentos tengo que tomar mañana\ntz: " + tz + "\nnow_epoch_ms: " + nowMs);
+            ObjectNode rem4dA = objectMsg("assistant", String.format("""
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
- "slots":{"query_reminder_type":"medication","datetime_iso":"2023-11-01"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+ "slots":{"query_reminder_type":"medication","datetime_iso":"%s"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""", exampleTomorrowStr));
             ObjectNode rem5U = objectMsg("user", "Sí, ya la tomé");
             ObjectNode rem5A = objectMsg("assistant", """
 {"intent":"CONFIRM_MEDICATION","confidence":0.98,"needs_confirmation":false,
