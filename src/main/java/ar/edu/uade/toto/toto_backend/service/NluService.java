@@ -144,11 +144,12 @@ public class NluService {
                             "    - \"event\" si pregunta por eventos/actividades.\n" +
                             "    - null si pregunta genéricamente por \"recordatorios\" o \"qué tengo\".\n" +
                             "  * slots.datetime_iso: extrae la fecha consultada en formato ISO (YYYY-MM-DD):\n" +
-                            "    - Si dice \"hoy\" o no especifica fecha → usa la fecha actual (now_epoch_ms).\n" +
-                            "    - Si dice \"mañana\" → fecha actual + 1 día.\n" +
-                            "    - Si dice \"pasado mañana\" → fecha actual + 2 días.\n" +
-                            "    - Si menciona día de la semana (\"el lunes\", \"el martes\") → calcula la fecha del próximo día.\n" +
+                            "    - Si dice \"hoy\" o no especifica fecha → SIEMPRE usa la fecha actual calculada de now_epoch_ms y tz.\n" +
+                            "    - Si dice \"mañana\" → fecha actual + 1 día (calculado de now_epoch_ms).\n" +
+                            "    - Si dice \"pasado mañana\" → fecha actual + 2 días (calculado de now_epoch_ms).\n" +
+                            "    - Si menciona día de la semana (\"el lunes\", \"el martes\") → calcula la fecha del próximo día desde now_epoch_ms.\n" +
                             "    - Si menciona fecha específica → convierte a ISO.\n" +
+                            "    - IMPORTANTE: SIEMPRE incluí datetime_iso, nunca lo dejes null. Si es \"hoy\" o sin especificar, usa la fecha actual.\n" +
                             "- Cuando el sistema pregunta si tomó un medicamento y responde afirmativamente: \"sí\", \"ya la tomé\", \"listo\" → CONFIRM_MEDICATION.\n" +
                             "  * IMPORTANTE: Si el contexto indica awaiting_medication_confirmation=true, cualquier respuesta afirmativa corta (\"sí\", \"ya\", \"listo\", \"ok\") debe ser CONFIRM_MEDICATION.\n" +
                             "- Cuando responde negativamente: \"no\", \"todavía no\", \"después\" → DENY_MEDICATION.\n" +
@@ -302,26 +303,29 @@ public class NluService {
 {"intent":"CREATE_REMINDER","confidence":0.98,"needs_confirmation":false,
  "slots":{"message_text":"tengo que tomar la aspirina a las 3 de la tarde","reminder_title":"tomar la aspirina","reminder_type":"medication","repeat_pattern":"once","hour":15,"minute":0},
  "ack_tts":"Listo, te anoto el recordatorio.","clarifying_question":null,"safety_notes":null}""");
-            ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy");
+            
+            // IMPORTANT: The dates below are examples. When processing real queries, ALWAYS calculate the date from now_epoch_ms + tz
+            // For "hoy" queries, compute current date from now_epoch_ms; for "mañana", compute current date + 1 day
+            ObjectNode rem3U = objectMsg("user", "Qué medicamentos tengo que tomar hoy\ntz: America/Argentina/Buenos_Aires\nnow_epoch_ms: 1698782400000");
             ObjectNode rem3A = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
- "slots":{"query_reminder_type":"medication"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+ "slots":{"query_reminder_type":"medication","datetime_iso":"2023-10-31"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode rem4U = objectMsg("user", "Mis recordatorios");
             ObjectNode rem4A = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.97,"needs_confirmation":false,
  "slots":{},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode rem4bU = objectMsg("user", "Qué eventos tengo");
+            ObjectNode rem4bU = objectMsg("user", "Qué eventos tengo hoy");
             ObjectNode rem4bA = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
- "slots":{"query_reminder_type":"event"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+ "slots":{"query_reminder_type":"event","datetime_iso":"2023-10-31"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode rem4cU = objectMsg("user", "Qué citas tengo anotadas");
             ObjectNode rem4cA = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
  "slots":{"query_reminder_type":"appointment"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
-            ObjectNode rem4dU = objectMsg("user", "Qué medicamentos tengo que tomar mañana");
+            ObjectNode rem4dU = objectMsg("user", "Qué medicamentos tengo que tomar mañana\ntz: America/Argentina/Buenos_Aires\nnow_epoch_ms: 1698782400000");
             ObjectNode rem4dA = objectMsg("assistant", """
 {"intent":"QUERY_REMINDERS","confidence":0.98,"needs_confirmation":false,
- "slots":{"query_reminder_type":"medication","datetime_iso":"2025-11-04"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
+ "slots":{"query_reminder_type":"medication","datetime_iso":"2023-11-01"},"ack_tts":null,"clarifying_question":null,"safety_notes":null}""");
             ObjectNode rem5U = objectMsg("user", "Sí, ya la tomé");
             ObjectNode rem5A = objectMsg("assistant", """
 {"intent":"CONFIRM_MEDICATION","confidence":0.98,"needs_confirmation":false,
