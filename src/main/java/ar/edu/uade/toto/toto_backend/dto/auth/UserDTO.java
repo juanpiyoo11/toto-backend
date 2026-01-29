@@ -18,7 +18,6 @@ public class UserDTO {
     private String role;
     private String address;
     private String birthdate;
-    private String medicalInfo;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -31,7 +30,6 @@ public class UserDTO {
                 user.getRole(),
                 user.getAddress(),
                 user.getBirthdate(),
-                user.getMedicalInfo(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );
