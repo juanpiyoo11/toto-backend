@@ -73,7 +73,6 @@ public class BootstrapService {
         elderly.setPhone("+54 9 11 6666-7777");
         elderly.setAddress("Av. Corrientes 1234, CABA, Argentina");
         elderly.setBirthdate("15/03/1945");
-        elderly.setMedicalInfo("Hipertensión controlada, diabetes tipo 2");
         elderly = userRepository.save(elderly);
         log.info("Created elderly user: {} (ID: {})", elderly.getEmail(), elderly.getId());
 

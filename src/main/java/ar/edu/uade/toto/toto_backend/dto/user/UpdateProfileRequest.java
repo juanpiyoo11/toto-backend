@@ -20,7 +20,4 @@ public class UpdateProfileRequest {
     private String address;
 
     private String birthdate;
-
-    @Size(max = 1000)
-    private String medicalInfo;
 }

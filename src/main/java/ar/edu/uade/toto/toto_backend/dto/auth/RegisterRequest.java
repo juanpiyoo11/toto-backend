@@ -20,5 +20,4 @@ public class RegisterRequest {
 
     private String birthdate;
     private String address;
-    private String medicalInfo;
 }
