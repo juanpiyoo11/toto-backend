@@ -19,15 +19,6 @@
 conversation:
   timeout-minutes: 5
 
-twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID}
-  auth-token: ${TWILIO_AUTH_TOKEN}
-  from-phone-number: ${TWILIO_FROM_PHONE_NUMBER}
-  template-sid: ${TWILIO_TEMPLATE_SID:}
-  default-region: AR
-  argentina:
-    drop9: true
-
 whatsapp:
   token: ${WHATSAPP_TOKEN}
   phone-id: ${WHATSAPP_PHONE_ID}

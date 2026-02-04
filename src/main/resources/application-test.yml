@@ -10,14 +10,6 @@ openai:
   default-tz: America/Argentina/Buenos_Aires
   default-locale: es-AR
 
-twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID:test-account-sid}
-  auth-token: ${TWILIO_AUTH_TOKEN:test-auth-token}
-  from-phone-number: ${TWILIO_FROM_PHONE_NUMBER:+1234567890}
-  template-sid: ${TWILIO_TEMPLATE_SID:}
-  default-region: AR
-  argentina:
-    drop9: true
 
 whatsapp:
   token: ${WHATSAPP_TOKEN:test-token}
