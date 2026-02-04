@@ -19,7 +19,7 @@ whatsapp:
   default-region: AR
   argentina:
     drop9: true
-  template-name-open: toto_open_text
+  template-name-open: toto_open_text_2
   template-language-code: es_AR
 
 spotify:
