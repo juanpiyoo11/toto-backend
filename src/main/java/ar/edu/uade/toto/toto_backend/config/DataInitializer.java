@@ -49,7 +49,6 @@ public class DataInitializer {
             elderly.setRole("ELDERLY");
             elderly.setAddress("Lima 757, CABA");
             elderly.setBirthdate("13/11/1950");
-            elderly.setMedicalInfo("Hipertensión arterial, Alérgico a la penicilina.");
 
             elderly = userRepository.save(elderly);
             log.info("Created elderly user: {}", elderly.getName());
@@ -62,7 +61,6 @@ public class DataInitializer {
             caregiver.setRole("CAREGIVER");
             caregiver.setAddress("Lima 575, CABA");
             caregiver.setBirthdate("01/09/1995");
-            caregiver.setMedicalInfo(null);
 
             caregiver = userRepository.save(caregiver);
             log.info("Created caregiver user: {}", caregiver.getName());

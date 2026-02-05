@@ -9,7 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/whatsapp")
+@RequestMapping("/api/messaging")
 public class WhatsAppController {
 
     private static final Logger log = LoggerFactory.getLogger(WhatsAppController.class);

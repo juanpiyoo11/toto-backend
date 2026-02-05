@@ -66,7 +66,6 @@ public class UserService {
         user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
         user.setBirthdate(request.getBirthdate());
-        user.setMedicalInfo(request.getMedicalInfo());
 
         user = userRepository.save(user);
         log.info("Profile updated for user: {}", user.getEmail());
@@ -231,7 +230,6 @@ public class UserService {
         user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
         user.setBirthdate(request.getBirthdate());
-        user.setMedicalInfo(request.getMedicalInfo());
 
         user = userRepository.save(user);
         log.info("Profile updated for user ID: {}", userId);
@@ -252,7 +250,6 @@ public class UserService {
         elderly.setPhone(request.getPhone());
         elderly.setAddress(request.getAddress());
         elderly.setBirthdate(request.getBirthdate());
-        elderly.setMedicalInfo(request.getMedicalInfo());
         elderly.setRole("ELDERLY");
         elderly.setEmail(null);
         elderly.setPassword(null);

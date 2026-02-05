@@ -43,9 +43,6 @@ public class User {
     @Column(length = 10)
     private String birthdate;
 
-    @Column(length = 1000)
-    private String medicalInfo;
-
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

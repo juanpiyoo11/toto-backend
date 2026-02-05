@@ -10,6 +10,7 @@ openai:
   default-tz: America/Argentina/Buenos_Aires
   default-locale: es-AR
 
+
 whatsapp:
   token: ${WHATSAPP_TOKEN:test-token}
   phone-id: ${WHATSAPP_PHONE_ID:test-phone}
@@ -18,7 +19,7 @@ whatsapp:
   default-region: AR
   argentina:
     drop9: true
-  template-name-open: toto_open_text
+  template-name-open: toto_open_text_2
   template-language-code: es_AR
 
 spotify:

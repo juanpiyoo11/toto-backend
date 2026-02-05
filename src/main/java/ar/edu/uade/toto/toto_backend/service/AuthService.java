@@ -78,7 +78,6 @@ public class AuthService {
         user.setRole(request.getRole());
         user.setAddress(request.getAddress());
         user.setBirthdate(request.getBirthdate());
-        user.setMedicalInfo(request.getMedicalInfo());
 
         user = userRepository.save(user);
 
